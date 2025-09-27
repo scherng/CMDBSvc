@@ -9,7 +9,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from app.config.settings import settings
 from app.api.endpoints import ingest, data
-from app.db.factory import DatabaseFactory, DatabaseType
+from app.db.db_factory import DatabaseFactory, DatabaseType
 
 logging.basicConfig(
     level=logging.INFO,
@@ -80,20 +80,6 @@ async def health_check():
         "service": settings.app_name,
         "version": settings.app_version
     }
-
-
-@app.get("/")
-async def root():
-    return {
-        "message": f"Welcome to {settings.app_name}",
-        "version": settings.app_version,
-        "docs_url": "/docs",
-        "endpoints": {
-            "ingest": f"POST /ingest - Ingest raw data",
-            "fetch": f"GET /ci/{{id}} - Fetch details by ID"
-        }
-    }
-
 
 if __name__ == "__main__":
     import uvicorn

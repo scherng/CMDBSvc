@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from datetime import datetime, timezone
-from app.core.schemas import IngestRequest, EntityIngestResponse
+from app.core.schemas import EntityIngestRequest, EntityIngestResponse, SingleEntityIngestResponse
 from app.core.pipeline import EntityPipeline
 from app.db.models import User, Application
 import logging
@@ -10,48 +10,60 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/ingest", response_model=EntityIngestResponse)
-async def ingest_data(request: IngestRequest):
+async def ingest_data(request: EntityIngestRequest):
     """
-    Ingest data and create appropriate CMDB entity (User or Application).
+    Ingest multiple data items and create appropriate CMDB entities (User or Application).
 
-    Automatically detects entity type based on input data fields and creates
-    the appropriate User or Application entity with generated CI ID.
+    Can handle mixed entity types in a single request. Automatically detects entity type
+    for each item based on input data fields and creates the appropriate User or
+    Application entity with generated CI ID.
 
-    - **data**: Raw input data to ingest
+    - **data**: List of raw input data to ingest
     - **metadata**: Optional metadata (reserved for future use)
 
-    Returns entity information including CI ID and entity type.
+    Returns list of entity information including CI ID and entity type for each item.
     """
-    logger.info("In ingest")
+    logger.info(f"Ingesting {len(request.data)} items")
     try:
         pipeline = EntityPipeline()
 
-        # Process data synchronously
-        entity = await pipeline.process(
+        # Process all data items. Currently assume everything is on bulk. 
+        # This part will be the candidate for optimization with streaming 
+        # in the future
+        entities = await pipeline.process(
             data=request.data,
             metadata=request.metadata
         )
 
-        # Determine entity type and extract appropriate ID
-        if isinstance(entity, User):
-            entity_type = "user"
-            entity_id = entity.user_id
-        elif isinstance(entity, Application):
-            entity_type = "application"
-            entity_id = entity.app_id
-        else:
+        # Build response for each entity
+        results = []
+        current_time = datetime.now(timezone.utc)
+
+        for entity in entities:
+            # Determine entity type and extract appropriate ID
+            if isinstance(entity, User):
+                entity_type = "user"
+            elif isinstance(entity, Application):
+                entity_type = "application"
+            else:
+                logger.warning(f"Unknown entity type for {entity}")
+                continue
+
+            result = SingleEntityIngestResponse(
+                ci_id=entity.ci_id,
+                entity_type=entity_type,
+                message=f"{entity_type.capitalize()} created successfully",
+                timestamp=current_time
+            )
+            results.append(result)
+
+        if not results:
             raise HTTPException(
                 status_code=500,
-                detail="Unknown entity type returned from pipeline"
+                detail="No entities were successfully created"
             )
 
-        return EntityIngestResponse(
-            ci_id=entity.ci_id,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            message=f"{entity_type.capitalize()} created successfully",
-            timestamp=datetime.now(timezone.utc)
-        )
+        return EntityIngestResponse(results=results)
 
     except ValueError as e:
         # Handle validation or detection errors

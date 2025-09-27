@@ -1,8 +1,8 @@
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union, List
 import logging
 from app.core.entity_detector import EntityDetector
 from app.db.models import User, Application, UserCreate, ApplicationCreate
-from app.db.connection import get_user_repository, get_application_repository
+from app.db.connection import get_user_operator, get_application_operator
 
 logger = logging.getLogger(__name__)
 
@@ -15,16 +15,15 @@ class EntityPipeline:
 
     def __init__(self):
         self.detector = EntityDetector()
-        self.user_repo = get_user_repository()
-        self.app_repo = get_application_repository()
+        self.user_repo = get_user_operator()
+        self.app_repo = get_application_operator()
 
-    async def process(self, data: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None) -> Union[User, Application]:
+    async def process_single(self, data: Dict[str, Any]) -> Union[User, Application]:
         """
-        Process incoming data and create appropriate entity.
+        Process a single data item and create appropriate entity.
 
         Args:
             data: Input data to process
-            metadata: Optional metadata (currently unused but kept for future use)
 
         Returns:
             Created User or Application entity
@@ -32,8 +31,7 @@ class EntityPipeline:
         Raises:
             ValueError: If entity type cannot be determined or creation fails
         """
-        
-        logger.info(f"in Process")
+
         try:
             # Step 1: Detect entity type
             entity_type = self.detector.detect_entity_type(data)
@@ -48,8 +46,47 @@ class EntityPipeline:
                 raise ValueError(f"Unsupported entity type: {entity_type}")
 
         except Exception as e:
-            logger.error(f"Pipeline processing failed: {str(e)}")
+            logger.error(f"Pipeline processing failed for single item: {str(e)}")
             raise
+
+    async def process(self, data: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]] = None) -> List[Union[User, Application]]:
+        """
+        Process a list of data items and create appropriate entities.
+        Can handle mixed entity types in the same request.
+
+        Args:
+            data: List of input data to process
+            metadata: Optional metadata (currently unused but kept for future use)
+
+        Returns:
+            List of created User or Application entities
+
+        Raises:
+            ValueError: If entity type cannot be determined or creation fails
+        """
+
+        logger.info(f"Processing {len(data)} items")
+        entities = []
+        errors = []
+
+        for index, item in enumerate(data):
+            try:
+                entity = await self.process_single(item)
+                entities.append(entity)
+                logger.info(f"Successfully processed item {index + 1}/{len(data)}: {entity.ci_id}")
+            except Exception as e:
+                error_msg = f"Failed to process item {index + 1}: {str(e)}"
+                logger.error(error_msg)
+                errors.append(error_msg)
+
+        if errors and not entities:
+            # All items failed
+            raise ValueError(f"All items failed to process: {'; '.join(errors)}")
+        elif errors:
+            # Some items failed - log but continue
+            logger.warning(f"Partial success: {len(entities)} succeeded, {len(errors)} failed")
+
+        return entities
 
     async def _create_user(self, data: Dict[str, Any]) -> User:
         """Create a User entity from the provided data."""
@@ -93,6 +130,7 @@ class EntityPipeline:
         Returns:
             User or Application entity if found, None otherwise
         """
+        # TODO I think we need to add a lookup table 
         # Try to find as user first
         user = self.user_repo.find_by_ci_id(ci_id)
         if user:

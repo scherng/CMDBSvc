@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from datetime import datetime, timezone
+from typing import List
 from app.core.schemas import EntityResponse
 from app.core.pipeline import EntityPipeline
 from app.db.models import User, Application
@@ -33,12 +34,8 @@ async def fetch_data_by_ci_id(ci_id: str):
         # Determine entity type and creation timestamp
         if isinstance(entity, User):
             entity_type = "user"
-            # For users, we'll use current time since we don't store created_at
-            # This could be enhanced by adding created_at to User model
-            created_at = datetime.now(timezone.utc)
         elif isinstance(entity, Application):
             entity_type = "application"
-            created_at = datetime.now(timezone.utc)
         else:
             raise HTTPException(
                 status_code=500,
@@ -48,8 +45,7 @@ async def fetch_data_by_ci_id(ci_id: str):
         return EntityResponse(
             ci_id=entity.ci_id,
             entity_type=entity_type,
-            entity_data=entity,
-            created_at=created_at
+            entity_data=entity
         )
 
     except HTTPException:
@@ -86,3 +82,51 @@ async def get_application_by_ci_id(ci_id: str):
         raise HTTPException(status_code=404, detail="Application not found")
 
     return application
+
+
+@router.get("/users", response_model=List[User])
+async def list_all_users(
+    skip: int = Query(0, ge=0, description="Number of users to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of users to return")
+):
+    """
+    List all users in the CMDB.
+
+    - **skip**: Number of users to skip (for pagination)
+    - **limit**: Maximum number of users to return (1-1000)
+
+    Returns a list of all User entities.
+    """
+    try:
+        pipeline = EntityPipeline()
+        users = pipeline.user_repo.find_all(skip=skip, limit=limit)
+        return users
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve users: {str(e)}"
+        )
+
+
+@router.get("/apps", response_model=List[Application])
+async def list_all_applications(
+    skip: int = Query(0, ge=0, description="Number of applications to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of applications to return")
+):
+    """
+    List all applications in the CMDB.
+
+    - **skip**: Number of applications to skip (for pagination)
+    - **limit**: Maximum number of applications to return (1-1000)
+
+    Returns a list of all Application entities.
+    """
+    try:
+        pipeline = EntityPipeline()
+        applications = pipeline.app_repo.find_all(skip=skip, limit=limit)
+        return applications
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve applications: {str(e)}"
+        )
