@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
 from app.db.models import Application, ApplicationCreate, ApplicationUpdate, ApplicationType
-from app.db.interfaces.collection_interface import CollectionInterface
+from app.db.collection_operator.collection_interface import CollectionInterface
 import logging
 
 logger = logging.getLogger(__name__)

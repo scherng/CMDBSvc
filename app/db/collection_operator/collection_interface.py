@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union
+from .cursor_interface import CursorInterface
 
 
 class CollectionInterface(ABC):
@@ -16,8 +17,8 @@ class CollectionInterface(ABC):
         pass
 
     @abstractmethod
-    def find(self, filter_dict: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """Find all documents matching the filter."""
+    def find(self, filter_dict: Optional[Dict[str, Any]] = None) -> CursorInterface:
+        """Find all documents matching the filter and return a cursor."""
         pass
 
     @abstractmethod

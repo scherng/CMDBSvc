@@ -2,15 +2,15 @@ from typing import Optional
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
 from pymongo.database import Database
-from app.db.interfaces.database_interface import DatabaseInterface
-from app.db.interfaces.collection_interface import CollectionInterface
-from .mongodb_collection import MongoDBCollection
+from app.db.connector.database_interface import DatabaseInterface
+from app.db.collection_operator.collection_interface import CollectionInterface
+from app.db.collection_operator.mongodb_collection import MongoDBCollection
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class MongoDBAdapter(DatabaseInterface):
+class MongoDBConnector(DatabaseInterface):
     """MongoDB implementation of DatabaseInterface."""
 
     def __init__(self):

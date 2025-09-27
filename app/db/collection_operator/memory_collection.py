@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Set
 from copy import deepcopy
-from app.db.interfaces.collection_interface import CollectionInterface
+from app.db.collection_operator.collection_interface import CollectionInterface
+from app.db.collection_operator.cursor_interface import CursorInterface, ListCursor
 import uuid
 import logging
 
@@ -64,14 +65,14 @@ class MemoryCollection(CollectionInterface):
                 return deepcopy(doc)
         return None
 
-    def find(self, filter_dict: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """Find all documents matching the filter."""
+    def find(self, filter_dict: Optional[Dict[str, Any]] = None) -> CursorInterface:
+        """Find all documents matching the filter and return a cursor."""
         filter_dict = filter_dict or {}
         results = []
         for doc in self._documents.values():
             if self._matches_filter(doc, filter_dict):
                 results.append(deepcopy(doc))
-        return results
+        return ListCursor(results)
 
     def update_one(self, filter_dict: Dict[str, Any], update_dict: Dict[str, Any]) -> UpdateResult:
         """Update a single document and return the result."""

@@ -1,13 +1,13 @@
 from typing import Dict
-from app.db.interfaces.database_interface import DatabaseInterface
-from app.db.interfaces.collection_interface import CollectionInterface
-from .memory_collection import MemoryCollection
+from app.db.connector.database_interface import DatabaseInterface
+from app.db.collection_operator.collection_interface import CollectionInterface
+from app.db.collection_operator.memory_collection import MemoryCollection
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class MemoryAdapter(DatabaseInterface):
+class MemoryConnector(DatabaseInterface):
     """In-memory implementation of DatabaseInterface for testing."""
 
     def __init__(self):

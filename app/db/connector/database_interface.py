@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
-from .collection_interface import CollectionInterface
+from ..collection_operator.collection_interface import CollectionInterface
 
 
 class DatabaseInterface(ABC):

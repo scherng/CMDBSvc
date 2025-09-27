@@ -1,5 +1,5 @@
-from app.db.factory import DatabaseFactory
-from app.db.interfaces.collection_interface import CollectionInterface
+from app.db.db_factory import DatabaseFactory
+from app.db.collection_operator.collection_interface import CollectionInterface
 from app.db.data_operator.user_operator import UserOperator
 from app.db.data_operator.application_operator import ApplicationOperator
 import logging

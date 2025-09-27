@@ -1,7 +1,8 @@
 from typing import Any, Dict, List, Optional
 from pymongo.collection import Collection
 from pymongo.results import InsertOneResult, UpdateResult, DeleteResult
-from app.db.interfaces.collection_interface import CollectionInterface
+from app.db.collection_operator.collection_interface import CollectionInterface
+from app.db.collection_operator.cursor_interface import CursorInterface, MongoDBCursor
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,10 +22,11 @@ class MongoDBCollection(CollectionInterface):
         """Find a single document matching the filter."""
         return self._collection.find_one(filter_dict)
 
-    def find(self, filter_dict: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """Find all documents matching the filter."""
+    def find(self, filter_dict: Optional[Dict[str, Any]] = None) -> CursorInterface:
+        """Find all documents matching the filter and return a cursor."""
         filter_dict = filter_dict or {}
-        return list(self._collection.find(filter_dict))
+        mongodb_cursor = self._collection.find(filter_dict)
+        return MongoDBCursor(mongodb_cursor)
 
     def update_one(self, filter_dict: Dict[str, Any], update_dict: Dict[str, Any]) -> UpdateResult:
         """Update a single document and return the result."""
