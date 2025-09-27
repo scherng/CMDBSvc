@@ -9,8 +9,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from app.config.settings import settings
 from app.api.endpoints import ingest, data
-
-from app.db.session import create_tables
+from app.db.factory import DatabaseFactory, DatabaseType
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,9 +22,24 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting CMDB Service...")
-    create_tables()
-    logger.info("Database tables created/verified")
+    try:
+        # Initialize database based on configuration
+        db_type = DatabaseType(settings.database_type.lower())
+
+        if db_type == DatabaseType.MONGODB:
+            connection_string = settings.mongodb_url
+        else:
+            # For in-memory database, connection string is not used
+            connection_string = ""
+
+        DatabaseFactory.initialize(db_type, connection_string, settings.database_name)
+        logger.info(f"Database connection established with type: {db_type}")
+
+    except Exception as e:
+        logger.error(f"Failed to connect to database: {e}")
+        raise
     yield
+    DatabaseFactory.disconnect()
     logger.info("Shutting down CMDB Service...")
 
 def setupRouter() -> APIRouter:
@@ -53,7 +67,6 @@ def create_application() -> FastAPI:
     )
     
     app.include_router(setupRouter())
-    
     return app
 
 
