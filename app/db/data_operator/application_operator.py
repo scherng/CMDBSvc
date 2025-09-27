@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class ApplicationRepository:
+class ApplicationOperator:
     def __init__(self, apps_collection: CollectionInterface, users_collection: CollectionInterface):
         self.collection = apps_collection
         self.users_collection = users_collection
@@ -68,52 +68,6 @@ class ApplicationRepository:
             logger.error(f"Error finding all applications: {e}")
             return []
 
-    def update(self, ci_id: str, app_update: ApplicationUpdate) -> Optional[Application]:
-        try:
-            update_data = app_update.model_dump(exclude_none=True)
-            if not update_data:
-                return self.find_by_ci_id(ci_id)
-
-            if "type" in update_data and isinstance(update_data["type"], ApplicationType):
-                update_data["type"] = update_data["type"].value
-
-            result = self.collection.update_one(
-                {"ci_id": ci_id},
-                {"$set": update_data}
-            )
-
-            if result.modified_count > 0:
-                logger.info(f"Application {ci_id} updated")
-                return self.find_by_ci_id(ci_id)
-            elif result.matched_count > 0:
-                return self.find_by_ci_id(ci_id)
-            else:
-                logger.warning(f"Application {ci_id} not found for update")
-                return None
-
-        except Exception as e:
-            logger.error(f"Error updating application {ci_id}: {e}")
-            return None
-
-    def delete(self, ci_id: str) -> bool:
-        try:
-            result = self.collection.delete_one({"ci_id": ci_id})
-
-            if result.deleted_count > 0:
-                self.users_collection.update_many(
-                    {"assigned_application_ids": ci_id},
-                    {"$pull": {"assigned_application_ids": ci_id}}
-                )
-                logger.info(f"Application {ci_id} deleted")
-                return True
-            else:
-                logger.warning(f"Application {ci_id} not found for deletion")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error deleting application {ci_id}: {e}")
-            return False
-
     def add_user(self, app_ci_id: str, user_ci_id: str) -> bool:
         try:
             result = self.collection.update_one(
@@ -133,27 +87,7 @@ class ApplicationRepository:
         except Exception as e:
             logger.error(f"Error adding user to application: {e}")
             return False
-
-    def remove_user(self, app_ci_id: str, user_ci_id: str) -> bool:
-        try:
-            result = self.collection.update_one(
-                {"ci_id": app_ci_id},
-                {"$pull": {"user_ids": user_ci_id}}
-            )
-
-            if result.modified_count > 0:
-                self.users_collection.update_one(
-                    {"ci_id": user_ci_id},
-                    {"$pull": {"assigned_application_ids": app_ci_id}}
-                )
-                logger.info(f"User {user_ci_id} removed from application {app_ci_id}")
-                return True
-            return False
-
-        except Exception as e:
-            logger.error(f"Error removing user from application: {e}")
-            return False
-
+        
     def find_by_owner(self, owner: str) -> List[Application]:
         try:
             cursor = self.collection.find({"owner": owner})

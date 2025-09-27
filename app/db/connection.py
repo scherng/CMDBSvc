@@ -1,7 +1,7 @@
 from app.db.factory import DatabaseFactory
 from app.db.interfaces.collection_interface import CollectionInterface
-from app.db.repositories.user_repository import UserRepository
-from app.db.repositories.application_repository import ApplicationRepository
+from app.db.data_operator.user_operator import UserOperator
+from app.db.data_operator.application_operator import ApplicationOperator
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,17 +19,15 @@ def get_applications_collection() -> CollectionInterface:
     return database.get_collection("applications")
 
 
-def get_user_repository() -> UserRepository:
-    """Get a UserRepository instance with injected dependencies."""
+def get_user_operator() -> UserOperator:
     users_collection = get_users_collection()
     apps_collection = get_applications_collection()
-    return UserRepository(users_collection, apps_collection)
+    return UserOperator(users_collection, apps_collection)
 
 
-def get_application_repository() -> ApplicationRepository:
-    """Get an ApplicationRepository instance with injected dependencies."""
+def get_application_operator() -> ApplicationOperator:
     apps_collection = get_applications_collection()
     users_collection = get_users_collection()
-    return ApplicationRepository(apps_collection, users_collection)
+    return ApplicationOperator(apps_collection, users_collection)
 
 

@@ -37,7 +37,7 @@ class User(UserBase):
     @classmethod
     def create_new(cls, **data) -> "User":
         return cls(
-            ci_id=f"CI-USER-{uuid.uuid4().hex[:8].upper()}",
+            ci_id=f"CI-{uuid.uuid4().hex[:12].upper()}",
             user_id=f"USR-{uuid.uuid4().hex[:12].upper()}",
             **data
         )
@@ -52,18 +52,23 @@ class User(UserBase):
             data.pop("_id")
         return cls(**data)
 
-class OS (str, enum):
+class OS (str, Enum):
     WINDOWS = "windows"
     MACOS = "macOS"
     LINUX = "ubuntu"
+
+class DeviceStatus(str, Enum):
+    INACTIVE = "inactive"
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
 
 class DeviceBase(BaseModel):
     hostname: str
     ip_address: str
     os: OS.WINDOWS
     assigned_user: str #indicates the id
-
-
+    location: str
+    status: DeviceStatus.INACTIVE
 
 class ApplicationBase(BaseModel):
     name: str
@@ -94,7 +99,7 @@ class Application(ApplicationBase):
     @classmethod
     def create_new(cls, **data) -> "Application":
         return cls(
-            ci_id=f"CI-APP-{uuid.uuid4().hex[:8].upper()}",
+            ci_id=f"CI-{uuid.uuid4().hex[:12].upper()}",
             app_id=f"APP-{uuid.uuid4().hex[:12].upper()}",
             **data
         )
