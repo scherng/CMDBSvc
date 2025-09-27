@@ -6,6 +6,21 @@ AI-powered Configuration Management Database (CMDB) backend service for data ing
 
 This service provides REST API endpoints for ingesting raw data and retrieving processed results. It features a modular pipeline architecture with AI-ready processing capabilities (currently in no-op mode for development).
 
+## API Endpoints
+
+- POST /ingest: Upload raw input data.
+- GET /devices, GET /users, GET /apps: List CIs.
+- GET /ci/<id>: Fetch details by ID.
+- POST /ask: Handle natural language queries (e.g., "Which users don’t have MFA?")
+
+## Assumptions
+- For this implementation, the data extraction and normalization are done in process syncrhonously. Though the data pipeline would be a perfect use case for streaming pipeline
+- All data are immutable, no update and delete are allowed
+    - this is mostly for simplicity purposes. But also to not spend too much time in the developing queries revision for MongoDB. 
+    - if Update is needed, then it will be done as part of the ingestion, and we would need to store the origination id (right now omitted after normalization) to compare the data.
+- The ci_id is normalized throughout collections, no information of the CI entity type is exposed from the id. 
+ 
+
 ## Features
 
 - **Data Ingestion**: REST API endpoint for uploading raw data
@@ -49,49 +64,40 @@ python app/main.py
 ```
 
 The service will start on `http://127.0.0.1:8000`
-
-## API Endpoints
-
-### Base URL: `http://127.0.0.1:8000`
-
-- **POST** `/api/v1/ingest` - Ingest raw data
-- **GET** `/api/v1/ci/{id}` - Fetch processed data by ID
-- **GET** `/health` - Health check endpoint
-- **GET** `/docs` - Interactive API documentation (Swagger UI)
-
 ### Example Usage
 
 **Ingest Data:**
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/ingest" \
-  -H "Content-Type: application/json" \
-  -d '{
-        {
-          "user_id": "u_110",
-          "name": "Jane Doe",
-          "email": "jane.d@example.com",
-          "groups": ["Engineering", "Admins"],
-          "apps": ["GitHub", "Slack", "Salesforce"],
-          "mfa_enabled": true,
-          "last_login": "2024-07-15T10:03:00Z",
-          "status": "ACTIVE"
-        },
-        {
-          "user_id": "u_235",
-          "name": "Carlos S.",
-          "email": "c.santos@example.com",
-          "groups": ["HR"],
-          "apps": ["Workday"],
-          "mfa_enabled": false,
-          "last_login": "2024-06-21T08:41:00Z",
-          "status": "ACTIVE"
-        }
-      }'
+curl -X POST "http://localhost:8000/ingest" \
+     -H "Content-Type: application/json" \
+       -d '{
+        "data" : [ 
+            {
+            "user_id": "u_110",
+            "name": "Jane Doe",
+            "email": "jane.d@example.com",
+            "groups": ["Engineering", "Admins"],
+            "apps": ["GitHub", "Slack", "Salesforce"],
+            "mfa_enabled": true,
+            "last_login": "2024-07-15T10:03:00Z",
+            "status": "ACTIVE"
+            }, 
+            {
+            "user_id": "u_123",
+            "name": "Alice Wonder",
+            "email": "alice.w@example.com",
+            "groups": ["Sales", "Team Leads"],
+            "apps": ["Salesforce"],
+            "mfa_enabled": false,
+            "last_login": "2025-09-15T09:03:00Z",
+            "status": "ACTIVE"
+            }]
+}'
 ```
 
 **Fetch Data:**
 ```bash
-curl "http://127.0.0.1:8000/api/v1/ci/{record_id}"
+curl -X GET "http://localhost:8000/users"
 ```
 
 ## Project Structure
