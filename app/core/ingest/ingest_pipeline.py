@@ -1,7 +1,8 @@
 from typing import Optional, Dict, Any, List
 import logging
 from app.core.ingest.entity_parser import EntityParser
-from app.db.models import User, Application
+from app.db.models import User, Application, Device
+from app.core.schemas import ProcessingResult
 
 logger = logging.getLogger(__name__)
 
@@ -10,32 +11,45 @@ class IngestPipeline:
     def __init__(self):
         self.parser = EntityParser()
 
-    async def process(self, data: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]] = None) -> List[User | Application]:
+    async def process(self, data: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]] = None) -> List[ProcessingResult]:
         logger.info(f"Processing {len(data)} items")
-        entities = []
-        errors = []
+        results = []
 
         for index, item in enumerate(data):
             try:
                 entity = await self._process_single(item)
-                entities.append(entity)
+                result = ProcessingResult(
+                    success=True,
+                    entity=entity,
+                    item_index=index,
+                    error_message=None,
+                    error_details=None
+                )
+                results.append(result)
                 logger.info(f"Successfully processed item {index + 1}/{len(data)}: {entity.ci_id}")
             except Exception as e:
-                error_msg = f"Failed to process item {index + 1}: {str(e)}"
-                logger.error(error_msg)
-                errors.append(error_msg)
+                error_msg = f"Failed to process item {index + 1}"
+                error_details = str(e)
+                logger.error(f"{error_msg}: {error_details}")
 
-        if errors and not entities:
-            # All items failed
-            raise ValueError(f"All items failed to process: {'; '.join(errors)}")
-        elif errors:
-            # Some items failed - log but continue
-            logger.warning(f"Partial success: {len(entities)} succeeded, {len(errors)} failed")
+                result = ProcessingResult(
+                    success=False,
+                    entity=None,
+                    item_index=index,
+                    error_message=error_msg,
+                    error_details=error_details
+                )
+                results.append(result)
 
-        return entities
+        # Log summary
+        successful = [r for r in results if r.success]
+        failed = [r for r in results if not r.success]
+        logger.info(f"Processing complete: {len(successful)} succeeded, {len(failed)} failed")
+
+        return results
 
 
-    async def _process_single(self, data: Dict[str, Any]) -> User | Application:
+    async def _process_single(self, data: Dict[str, Any]) -> User | Application | Device:
         try:
             # Step 1: Detect entity type and normalize fields using AI
             entity_type, normalized_data = await self.parser.detect_and_normalize(data)

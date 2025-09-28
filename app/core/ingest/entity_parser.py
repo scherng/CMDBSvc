@@ -3,7 +3,7 @@ from .field_normalizer import FieldNormalizer, MappingResult
 import logging
 from app.config.settings import settings
 from app.core.entity_data.entity_manager import EntityManager
-from app.db.models import User, Application, UserCreate, ApplicationCreate, EntityType
+from app.db.models import User, Application, Device, UserCreate, ApplicationCreate, DeviceCreate, EntityType
 
 
 logger = logging.getLogger(__name__)
@@ -65,11 +65,13 @@ class EntityParser:
         return entity_type, data
 
         
-    async def parse(self, entity_type: EntityType, normalized_data: Dict[str, Any]) -> User | Application:
+    async def parse(self, entity_type: EntityType, normalized_data: Dict[str, Any]) -> User | Application | Device:
             if entity_type == EntityType.USER:
                 return await self._create_user(normalized_data)
             elif entity_type == EntityType.APPLICATION:
                 return await self._create_application(normalized_data)
+            elif entity_type == EntityType.DEVICE:
+                return await self._create_device(normalized_data)
             else:
                 raise ValueError(f"Unsupported entity type: {entity_type}")
 
@@ -104,6 +106,22 @@ class EntityParser:
         except Exception as e:
             logger.error(f"Failed to create application: {str(e)}")
             raise ValueError(f"Application creation failed: {str(e)}")
+        
+    async def _create_device(self, data: Dict[str, Any]) -> Device:
+        try:
+            # Validate and create device data model
+            logger.info(f"Creating device with data: {data}")
+            device_create = DeviceCreate(**data)
+
+            # Create device in repository
+            device = self.entity_mgr.device_op.create(device_create)
+
+            logger.info(f"Device created successfully with ci_id: {device.ci_id}")
+            return device
+
+        except Exception as e:
+            logger.error(f"Failed to create device: {str(e)}")
+            raise ValueError(f"Device creation failed: {str(e)}")
 
     def get_mapping_confidence(self, mapping_result: Optional[MappingResult]) -> float:
         """Get the confidence score from mapping result."""

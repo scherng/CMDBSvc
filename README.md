@@ -102,8 +102,10 @@ classDiagram
         +get_entity_by_ci_id(ci_id)
         +get_users_collection()
         +get_applications_collection()
+        +get_devices_collection()
         +get_user_operator()
         +get_application_operator()
+        +get_devices_operator()
     }
 
     class LLMService {
@@ -307,7 +309,53 @@ curl -X POST "http://localhost:8000/ingest" \
     ]
 }
 ```
+Handling partial errors:
 
+```bash
+curl -X POST "http://localhost:8000/ingest" \
+     -H "Content-Type: application/json" \
+       -d '{
+        "data" : [ 
+     {
+        "device_id": "C-19283",
+        "hostname": "laptop-jdoe",
+        "assigned_to": "John D.",
+        "os": "ERRORERROR",
+        "ip_address": "10.10.22.5",
+        "status": "active"
+    },
+    {
+        "device_id": "C-87412",
+        "hostname": "laptop-mlee",
+        "assigned_to": "Michelle Lee",
+        "os": "windows",
+        "ip_address": "10.10.22.11",
+        "last_checkin": "2024-07-10T11:05:00Z",
+        "location": "London Office",
+        "encryption_status": "BitLocker Enabled",
+        "status": "active"
+    },
+    {
+       "application_name" : "GitHub",
+       "Owner" : "FooBar",
+       "type" :  "SaaS",
+       "integration" : ["Billing", "Slack"],
+       "usageCount" : 1234
+    }]
+}'
+```
+
+```bash
+{
+    "results":
+        [
+            {"ci_id":null,"entity_type":null,"message":"Failed to process item 1","timestamp":"2025-09-28T22:47:53.566414Z","success":false,"error_details":"Device creation failed: 2 validation errors for DeviceCreate\nos\n  Input should be 'windows', 'macOS', 'ubuntu' or 'undefined' [type=enum, input_value='ERRORERROR', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.11/v/enum\nlocation\n  Field required [type=missing, input_value={'hostname': 'laptop-jdoe... 'device_id': 'C-19283'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing"},
+            {"ci_id":"CI-018BBCC6F559","entity_type":"device","message":"Device created successfully","timestamp":"2025-09-28T22:47:53.566414Z","success":true,"error_details":null},
+            {"ci_id":"CI-525EA7D127CF","entity_type":"application","message":"Application created successfully","timestamp":"2025-09-28T22:47:53.566414Z","success":true,"error_details":null}
+        ],
+    "summary":{"total_items":3,"successful":2,"failed":1,"success_rate":66.7}
+}
+```
 ### Natural Language Queries
 ```bash
 curl -X POST \
