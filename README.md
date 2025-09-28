@@ -6,50 +6,6 @@ A Configuration Management Database (CMDB) service built with FastAPI that provi
 
 The CMDB service is designed with a modular architecture that supports multiple database backends, AI-enhanced field mapping, and natural language query processing.
 
-### Core Components
-
-```mermaid
-classDiagram
-    class DatabaseInterface {
-        <<abstract>>
-        +find_all(skip, limit)
-        +find_by_id(id)
-        +create(entity)
-        +update(id, data)
-        +delete(id)
-        +close()
-    }
-
-    class MongoDBConnector {
-        -client: MongoClient
-        -database: Database
-        +find_all(skip, limit)
-        +find_by_id(id)
-        +create(entity)
-        +update(id, data)
-        +delete(id)
-        +close()
-    }
-
-    class InMemoryConnector {
-        -data: Dict
-        +find_all(skip, limit)
-        +find_by_id(id)
-        +create(entity)
-        +update(id, data)
-        +delete(id)
-        +close()
-    }
-
-    class DatabaseFactory {
-        +create_database(db_type) DatabaseInterface
-    }
-
-    DatabaseInterface <|-- MongoDBConnector
-    DatabaseInterface <|-- InMemoryConnector
-    DatabaseFactory --> DatabaseInterface
-```
-
 ### Entity Models
 
 ```mermaid
@@ -128,11 +84,11 @@ classDiagram
     }
 
     class FieldNormalizer {
-        -llm_service: LLMService
-        +normalize(data, entity_type) Dict
+        +detect_and_normalize(data, entity_type) Dict
+        +normalize_fields(data, entityType) MappingResult
         -_llm_detect_entity_type(data) str
         -_get_llm_field_mappings(fields, entity_type) List[FieldMapping]
-        -_apply_mappings(data, mappings) Dict
+        -_fallback_detection_and_mapping(data, mappings) Dict
     }
 
     class EntityParser {
@@ -140,6 +96,14 @@ classDiagram
         -_create_user(data) User
         -_create_application(data) Application
         -_create_device(data) Device
+    }
+    
+    class EntityManager{
+        +get_entity_by_ci_id(ci_id)
+        +get_users_collection()
+        +get_applications_collection()
+        +get_user_operator()
+        +get_application_operator()
     }
 
     class LLMService {
@@ -150,8 +114,9 @@ classDiagram
         -_initialize()
     }
 
-    IngestionPipeline --> FieldNormalizer
     IngestionPipeline --> EntityParser
+    EntityParser --> EntityManager
+    EntityParser --> FieldNormalizer
     FieldNormalizer --> LLMService
 ```
 
@@ -173,41 +138,17 @@ classDiagram
     }
 
     class QueryRouter {
-        -database: DatabaseInterface
+        -collection_operator: CollectionOperator
         +execute(mongo_query) Dict
-        -_execute_simple_query(query) Dict
-        -_execute_aggregation(query) Dict
+        -_format_results(results) Dict
     }
 
     LLMToDbQueryHandler --> SimpleLLMQuery
     LLMToDbQueryHandler --> QueryRouter
-    QueryRouter --> DatabaseInterface
+    QueryRouter --> CollectionOperator
+
 ```
 
-## Features
-
-### 1. Multi-Database Support
-- **MongoDB**: Production database with full MongoDB query support
-- **In-Memory**: Dictionary-based storage for testing and development
-- **Database Factory**: Centralized database connector creation
-- **Cursor Pattern**: Database-agnostic pagination
-
-### 2. AI-Enhanced Data Processing
-- **Field Mapping**: Automatically maps field variations to canonical names
-  - Example: `mfa_status` → `mfa_enabled`, `group` → `team`
-- **Entity Type Detection**: AI-powered detection of entity types from data
-- **Confidence Scoring**: Provides confidence levels for mappings
-
-### 3. Natural Language Querying
-- **LLM Integration**: Converts natural language to MongoDB queries
-- **Schema-Aware**: Uses enhanced schema for accurate query generation
-- **Query Execution**: Executes generated queries and returns results
-
-### 4. RESTful API
-- **Entity Management**: CRUD operations for users, applications, and devices
-- **Batch Processing**: Handle mixed entity types in single requests
-- **Pagination**: Efficient pagination with skip/limit parameters
-- **Natural Language Endpoint**: `/ask/` for natural language queries
 
 ## Assumptions & Limitations
 - For this implementation, the data extraction and normalization are done in process synchronously. Though the data pipeline would be a perfect use case for streaming pipeline
@@ -282,22 +223,166 @@ python run.py
 
 ### Ingesting Data
 ```bash
-curl -X POST "http://localhost:8000/api/v1/ingest/" \
-  -H "Content-Type: application/json" \
-  -d '[
+curl -X POST "http://localhost:8000/ingest" \
+     -H "Content-Type: application/json" \
+       -d '{
+        "data" : [ 
+            {
+            "user_id": "u_110",
+            "name": "Jane Doe",
+            "email": "jane.d@example.com",
+            "permissions": ["Engineering", "Admins"],
+            "apps": ["GitHub", "Slack", "Salesforce"],
+            "mfa_enabled": true,
+            "last_login": "2024-07-15T10:03:00Z",
+            "status": "ACTIVE"
+            }, 
+            {
+            "user_id": "u_123",
+            "name": "Alice Wonder",
+            "email": "alice.w@example.com",
+            "permissions": ["Sales", "Team Leads"],
+            "apps": ["Salesforce"],
+            "mfa_enabled": false,
+            "last_login": "2025-09-15T09:03:00Z",
+            "status": "ACTIVE"
+            }, 
+            {
+            "user_id": "u_456",
+            "name": "Bob Brown",
+            "email": "bob.b@example.com",
+            "permissions": ["Sales", "Admins"],
+            "apps": ["Salesforce", "Slack", "Okta"],
+            "mfa_enabled": false,
+            "last_login": "2023-09-15T09:03:00Z",
+            "status": "INACTIVE"
+            }]
+}'
+```
+```bash
+{
+    "results":
+        [
+            {"ci_id":"CI-1A912B49113E","entity_type":"user","message":"User created successfully","timestamp":"2025-09-28T21:15:18.539483Z"},
+            {"ci_id":"CI-F336212E1CDC","entity_type":"user","message":"User created successfully","timestamp":"2025-09-28T21:15:18.539483Z"},
+            {"ci_id":"CI-31E90886B61A","entity_type":"user","message":"User created successfully","timestamp":"2025-09-28T21:15:18.539483Z"}
+        ]
+}
+```
+Create Application mixed with Users, Utilize LLM to detect and normalize the fields
+
+```bash
+curl -X POST "http://localhost:8000/ingest" \
+     -H "Content-Type: application/json" \
+       -d '{
+        "data" : [ 
+      {
+            "user_id": "u_789",
+            "name": "Rob Oppenheimer",
+            "email": "rob.op@example.com",
+            "permissions": ["Engineering", "CTO"],
+            "apps": ["Github", "Slack", "Lab"],
+            "mfa_enabled": true,
+            "last_login": "1954-09-15T09:03:00Z",
+            "status": "INACTIVE"
+     },
     {
-      "full_name": "John Doe",
-      "department": "Engineering",
-      "mfa_status": true
-    }
-  ]'
+       "application_name" : "GitHub",
+       "Owner" : "FooBar",
+       "type" :  "SaaS",
+       "integration" : ["Billing", "Slack"],
+       "usageCount" : 1234
+    }]
+}'
+
+```
+
+```bash
+{
+    "results":
+    [
+        {"ci_id":"CI-0302FC7292D2","entity_type":"user","message":"User created successfully","timestamp":"2025-09-28T21:42:03.733648Z"},
+        {"ci_id":"CI-B322539522C3","entity_type":"application","message":"Application created successfully","timestamp":"2025-09-28T21:42:03.733648Z"}
+    ]
+}
 ```
 
 ### Natural Language Queries
 ```bash
-curl -X POST "http://localhost:8000/ask/" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Find all users in the Engineering team"}'
+curl -X POST \
+    -H "Content-Type: application/json" \
+    -d '{"prompt": "Find all users with mfa disabled"}' \
+    http://localhost:8000/ask
+```
+```bash
+{
+    "original_prompt":"Find all users with mfa disabled",
+    "mongo_query":{"collection":"users","query":{"mfa_enabled":false}},
+    "execution":
+    {
+        "collection":"users",
+        "query":{"collection":"users","query":{"mfa_enabled":false}},
+        "count":2,
+        "results":
+        [
+            {"name":"Alice Wonder","team":null,"permission_group":["Sales","Team Leads"],"mfa_enabled":false,"last_login":"2025-09-15T09:03:00","assigned_application_ids":["Salesforce"],"ci_id":"CI-F336212E1CDC","user_id":"USR-F61B01DD1C0A"},
+            {"name":"Bob Brown","team":null,"permission_group":["Sales","Admins"],"mfa_enabled":false,"last_login":"2023-09-15T09:03:00","assigned_application_ids":["Salesforce","Slack","Okta"],"ci_id":"CI-31E90886B61A","user_id":"USR-3F2FBC5B2B70"}
+        ]
+    }
+}
+```
+
+```bash
+  curl -X POST \
+    -H "Content-Type: application/json" \
+    -d '{"prompt": "Show applications with no users"}' \
+    http://localhost:8000/ask
+```
+
+```bash
+{
+    "original_prompt":"Show applications with no users",
+    "mongo_query":{"collection":"applications","query":{"user_ids":{"$size":0}}},
+    "execution":
+    {"
+        collection":"applications",
+        "query":{"collection":"applications",
+        "query":{"user_ids":{"$size":0}}},
+        "count":0,
+        "results":[]
+    }
+}
+```
+
+### List Data
+```bash
+curl -X GET "http://localhost:8000/apps"
+```
+```bash
+[
+    {"name":"GitHub","owner":"FooBar","type":"SaaS","integrations":["Billing","Slack"],"usage_count":1234,"ci_id":"CI-029CB6E8B752","app_id":"APP-4A81F0B58003"}
+]
+```
+
+```bash
+curl -X GET "http://localhost:8000/ci/CI-0302FC7292D2"
+```
+
+```bash
+{
+    "entity_type":"user",
+    "entity_data":
+    {
+        "name":"Rob Oppenheimer",
+        "team":null,
+        "permission_group":["Engineering","CTO"],
+        "mfa_enabled":true,
+        "last_login":"1954-09-15T09:03:00",
+        "assigned_application_ids":["Github","Slack","Lab"],
+        "ci_id":"CI-0302FC7292D2",
+        "user_id":"USR-DFFE42ED0349"
+    }
+}
 ```
 
 ### Listing Entities
@@ -308,42 +393,6 @@ curl "http://localhost:8000/api/v1/data/users?skip=0&limit=50"
 # Get all applications
 curl "http://localhost:8000/api/v1/data/apps?skip=0&limit=50"
 ```
-
-## Development
-
-### Running Tests
-The service supports both MongoDB and in-memory backends for testing:
-
-```python
-# Use in-memory database for tests
-settings.database_type = "memory"
-```
-
-### Adding New Entity Types
-1. Add enum value to `EntityType` in `models.py`
-2. Create base and full model classes
-3. Update field mapping schema
-4. Add parser logic to `EntityParser`
-
-### Extending Field Mappings
-Add field variations to `field_mapping_schema.py`:
-
-```python
-"canonical_field": {
-    "variations": ["variant1", "variant2", "variant3"],
-    "type": "string",
-    "required": True
-}
-```
-
-## Architecture Benefits
-
-- **Separation of Concerns**: Clear separation between data access, processing, and API layers
-- **Testability**: In-memory database support for unit testing
-- **Extensibility**: Easy to add new entity types and database backends
-- **AI Integration**: Seamless integration of AI capabilities for data processing
-- **Type Safety**: Strong typing with Pydantic models and enums
-- **Performance**: Singleton LLM service prevents multiple initializations
 
 ## Project Structure
 
