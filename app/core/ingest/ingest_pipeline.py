@@ -42,6 +42,7 @@ class IngestPipeline:
                 results.append(result)
 
         # Log summary
+        # This in the future can tee out to different stream for different processing/sink
         successful = [r for r in results if r.success]
         failed = [r for r in results if not r.success]
         logger.info(f"Processing complete: {len(successful)} succeeded, {len(failed)} failed")

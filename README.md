@@ -4,7 +4,7 @@ A Configuration Management Database (CMDB) service built with FastAPI that provi
 
 ## Architecture Overview
 
-The CMDB service is designed with a modular architecture that supports multiple database backends, AI-enhanced field mapping, and natural language query processing.
+The CMDB service is designed with a modular architecture that supports multiple database backends, AI-enhanced field mapping, and natural language query processing. Currently the implementation assume a batch mode where each steps will be executed sequentially within the runtime (it is using `async` so at least non blocking). However, such implementation probably is a perfect use case for streaming or serverless architecture on cloud. 
 
 ### Entity Models
 
@@ -159,8 +159,9 @@ classDiagram
     - this is mostly for simplicity purposes. But also to not spend too much time in the developing queries revision for MongoDB.
     - if Update is needed, then it will be done as part of the ingestion, and we would need to store the origination id (right now omitted after normalization) to compare the data.
 - The ci_id is normalized throughout collections, no information of the CI entity type is exposed from the id.
-- Assumptions on Dependency Mappings
-- The natural language prompt can only work on a single collection at a time
+- I'm not sure on Dependency Mappings relatioships, I'm guessing could be the correlation between App to Users or hierarchy of groups/permissioning. Right now it is not represented in the code, though the code can be enhanced easily to do cross-collection search. 
+- The natural language prompt can only work on a single collection at a time.
+- 
 
 ## API Endpoints
 
@@ -211,6 +212,7 @@ pip install -r requirements.txt
 ```
 
 2. Configure environment variables or `.env` file:
+
 ```bash
 MONGODB_URL=your_mongodb_connection_string
 OPENAI_API_KEY=your_openai_api_key
@@ -356,6 +358,7 @@ curl -X POST "http://localhost:8000/ingest" \
     "summary":{"total_items":3,"successful":2,"failed":1,"success_rate":66.7}
 }
 ```
+
 ### Natural Language Queries
 ```bash
 curl -X POST \
