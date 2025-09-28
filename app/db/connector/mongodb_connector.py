@@ -65,6 +65,12 @@ class MongoDBConnector(DatabaseInterface):
             apps_collection.create_index("app_id", unique=True)
             apps_collection.create_index("name")
 
+            # Create indexes for devices collection
+            devices_collection = self.get_collection("devices")
+            devices_collection.create_index("ci_id", unique=True)
+            devices_collection.create_index("device_id", unique=True)
+            devices_collection.create_index("hostname")
+
             logger.info("MongoDB indexes created successfully")
         except Exception as e:
             logger.error(f"Error creating indexes: {e}")

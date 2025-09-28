@@ -2,7 +2,8 @@ from typing import Dict, Any, Union, List
 from app.db.connector.database_interface import DatabaseInterface
 from app.db.data_operator.user_operator import UserOperator
 from app.db.data_operator.application_operator import ApplicationOperator
-from app.db.models import User, Application
+from app.db.data_operator.device_operator import DeviceOperator
+from app.db.models import User, Application, Device
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,14 +18,17 @@ class CollectionQueryRouter:
         # Initialize operators with their respective collections
         users_collection = database.get_collection("users")
         apps_collection = database.get_collection("applications")
+        devices_collection = database.get_collection("devices")
 
         self.user_operator = UserOperator(users_collection, apps_collection)
         self.app_operator = ApplicationOperator(apps_collection, users_collection)
+        self.device_operator = DeviceOperator(devices_collection, users_collection)
 
         # Map collection names to operators
         self.operators = {
             "users": self.user_operator,
             "applications": self.app_operator,
+            "devices": self.device_operator,
         }
 
     def execute(self, mongo_query: Dict[str, Any]) -> Dict[str, Any]:
@@ -67,7 +71,7 @@ class CollectionQueryRouter:
                 "query": mongo_query
             }
 
-    def _format_results(self, results: Union[List[User], List[Application], List[Dict[str, Any]], int],
+    def _format_results(self, results: Union[List[User], List[Application], List[Device], List[Dict[str, Any]], int],
                        collection_name: str) -> Union[List[Dict[str, Any]], int]:
         """Format results for API response."""
         try:
@@ -77,7 +81,7 @@ class CollectionQueryRouter:
 
             # If it's a list of Pydantic models, convert to dict
             if isinstance(results, list) and len(results) > 0:
-                if isinstance(results[0], (User, Application)):
+                if isinstance(results[0], (User, Application, Device)):
                     # Convert Pydantic models to dictionaries
                     return [item.model_dump() for item in results]
                 elif isinstance(results[0], dict):

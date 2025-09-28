@@ -50,6 +50,7 @@ class OS (str, Enum):
     WINDOWS = "windows"
     MACOS = "macOS"
     LINUX = "ubuntu"
+    UNDEFINED = "undefined"
 
 class DeviceStatus(str, Enum):
     INACTIVE = "inactive"
@@ -59,10 +60,10 @@ class DeviceStatus(str, Enum):
 class DeviceBase(BaseModel):
     hostname: str = Field(..., description="Device Hostname")
     ip_address: str = Field(..., description="Unique device ID")
-    os: OS.WINDOWS
+    os: OS = OS.UNDEFINED
     assigned_user: str = Field(description="User Id of the device's assigned user")
     location: str
-    status: DeviceStatus.INACTIVE
+    status: DeviceStatus = DeviceStatus.INACTIVE
 
 class Device(DeviceBase):
     ci_id: str = Field(..., description="Configuration item ID")
@@ -72,7 +73,7 @@ class Device(DeviceBase):
     def create_new(cls, **data) -> "Device":
         return cls(
             ci_id=f"CI-{uuid.uuid4().hex[:12].upper()}",
-            app_id=f"DVC-{uuid.uuid4().hex[:12].upper()}",
+            device_id=f"DVC-{uuid.uuid4().hex[:12].upper()}",
             **data
         )
 

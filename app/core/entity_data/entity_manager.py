@@ -2,7 +2,8 @@ from app.db.db_factory import DatabaseFactory
 from app.db.collection_operator.collection_interface import CollectionInterface
 from app.db.data_operator.user_operator import UserOperator
 from app.db.data_operator.application_operator import ApplicationOperator
-from app.db.models import User, Application
+from app.db.data_operator.device_operator import DeviceOperator
+from app.db.models import User, Application, Device
 import logging
 from typing import Optional
 
@@ -11,8 +12,9 @@ logger = logging.getLogger(__name__)
 
 class EntityManager:
     def __init__(self):
-        self.user_op  = self.get_user_operator()
+        self.user_op = self.get_user_operator()
         self.app_op = self.get_application_operator()
+        self.device_op = self.get_device_operator()
 
     def get_users_collection(self) -> CollectionInterface:
         """Get the users collection interface."""
@@ -24,6 +26,11 @@ class EntityManager:
         """Get the applications collection interface."""
         database = DatabaseFactory.get_database()
         return database.get_collection("applications")
+
+    def get_devices_collection(self) -> CollectionInterface:
+        """Get the devices collection interface."""
+        database = DatabaseFactory.get_database()
+        return database.get_collection("devices")
 
 
     def get_user_operator(self) -> UserOperator:
@@ -37,7 +44,12 @@ class EntityManager:
         users_collection = self.get_users_collection()
         return ApplicationOperator(apps_collection, users_collection)
 
-    def get_entity_by_ci_id(self, ci_id: str) -> Optional[User | Application]:
+    def get_device_operator(self) -> DeviceOperator:
+        devices_collection = self.get_devices_collection()
+        users_collection = self.get_users_collection()
+        return DeviceOperator(devices_collection, users_collection)
+
+    def get_entity_by_ci_id(self, ci_id: str) -> Optional[User | Application | Device]:
         """
         Retrieve an entity by its CI ID.
 
@@ -45,9 +57,9 @@ class EntityManager:
             ci_id: Configuration Item ID
 
         Returns:
-            User or Application entity if found, None otherwise
+            User, Application, or Device entity if found, None otherwise
         """
-        # TODO I think we need to add a lookup table 
+        # TODO I think we need to add a lookup table
         # Try to find as user first
         user = self.user_op.find_by_ci_id(ci_id)
         if user:
@@ -57,6 +69,11 @@ class EntityManager:
         application = self.app_op.find_by_ci_id(ci_id)
         if application:
             return application
+
+        # Try to find as device
+        device = self.device_op.find_by_ci_id(ci_id)
+        if device:
+            return device
 
         return None
 
