@@ -28,22 +28,6 @@ class MongoDBCollection(CollectionInterface):
         mongodb_cursor = self._collection.find(filter_dict)
         return MongoDBCursor(mongodb_cursor)
 
-    def update_one(self, filter_dict: Dict[str, Any], update_dict: Dict[str, Any]) -> UpdateResult:
-        """Update a single document and return the result."""
-        return self._collection.update_one(filter_dict, update_dict)
-
-    def update_many(self, filter_dict: Dict[str, Any], update_dict: Dict[str, Any]) -> UpdateResult:
-        """Update multiple documents and return the result."""
-        return self._collection.update_many(filter_dict, update_dict)
-
-    def delete_one(self, filter_dict: Dict[str, Any]) -> DeleteResult:
-        """Delete a single document and return the result."""
-        return self._collection.delete_one(filter_dict)
-
-    def delete_many(self, filter_dict: Dict[str, Any]) -> DeleteResult:
-        """Delete multiple documents and return the result."""
-        return self._collection.delete_many(filter_dict)
-
     def create_index(self, field: str, unique: bool = False) -> None:
         """Create an index on the specified field."""
         try:
@@ -51,4 +35,26 @@ class MongoDBCollection(CollectionInterface):
             logger.info(f"Index created on field '{field}' (unique={unique})")
         except Exception as e:
             logger.error(f"Error creating index on field '{field}': {e}")
+            raise
+
+    def aggregate(self, pipeline: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Execute an aggregation pipeline and return the results."""
+        try:
+            cursor = self._collection.aggregate(pipeline)
+            results = list(cursor)
+            logger.info(f"Aggregation pipeline executed, returned {len(results)} results")
+            return results
+        except Exception as e:
+            logger.error(f"Error executing aggregation pipeline: {e}")
+            raise
+
+    def count_documents(self, filter_dict: Optional[Dict[str, Any]] = None) -> int:
+        """Count documents matching the filter."""
+        try:
+            filter_dict = filter_dict or {}
+            count = self._collection.count_documents(filter_dict)
+            logger.info(f"Document count query executed, found {count} documents")
+            return count
+        except Exception as e:
+            logger.error(f"Error counting documents: {e}")
             raise

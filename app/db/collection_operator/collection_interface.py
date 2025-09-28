@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from .cursor_interface import CursorInterface
 
 
@@ -20,28 +20,18 @@ class CollectionInterface(ABC):
     def find(self, filter_dict: Optional[Dict[str, Any]] = None) -> CursorInterface:
         """Find all documents matching the filter and return a cursor."""
         pass
-
-    @abstractmethod
-    def update_one(self, filter_dict: Dict[str, Any], update_dict: Dict[str, Any]) -> Any:
-        """Update a single document and return the result."""
-        pass
-
-    @abstractmethod
-    def update_many(self, filter_dict: Dict[str, Any], update_dict: Dict[str, Any]) -> Any:
-        """Update multiple documents and return the result."""
-        pass
-
-    @abstractmethod
-    def delete_one(self, filter_dict: Dict[str, Any]) -> Any:
-        """Delete a single document and return the result."""
-        pass
-
-    @abstractmethod
-    def delete_many(self, filter_dict: Dict[str, Any]) -> Any:
-        """Delete multiple documents and return the result."""
-        pass
-
+    
     @abstractmethod
     def create_index(self, field: str, unique: bool = False) -> None:
         """Create an index on the specified field."""
+        pass
+
+    @abstractmethod
+    def aggregate(self, pipeline: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Execute an aggregation pipeline and return the results."""
+        pass
+
+    @abstractmethod
+    def count_documents(self, filter_dict: Optional[Dict[str, Any]] = None) -> int:
+        """Count documents matching the filter."""
         pass

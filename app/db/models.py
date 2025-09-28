@@ -4,17 +4,24 @@ from datetime import datetime
 from enum import Enum
 import uuid
 
-
 class ApplicationType(str, Enum):
     SAAS = "SaaS"
     ON_PREM = "on-prem"
 
-class User(BaseModel):
+class EntityType(str, Enum):
+    USER = "user"
+    APPLICATION = "application"
+    DEVICE = "device"
+
+class UserBase(BaseModel):
     name: str
     team: Optional[str] = None
-    mfa_status: bool = False
+    permission_group: List[str] = Field(default_factory=list, description="User's provisioned permission") 
+    mfa_enabled: bool = False
     last_login: Optional[datetime] = None
     assigned_application_ids: List[str] = Field(default_factory=list)
+
+class User(UserBase):
     ci_id: str = Field(..., description="Configuration item ID")
     user_id: str = Field(..., description="Unique user ID")
 
@@ -36,9 +43,8 @@ class User(BaseModel):
             data.pop("_id")
         return cls(**data)
 
-class UserCreate(User):
+class UserCreate(UserBase):
     pass
-
 
 class OS (str, Enum):
     WINDOWS = "windows"
@@ -50,16 +56,17 @@ class DeviceStatus(str, Enum):
     ACTIVE = "active"
     SUSPENDED = "suspended"
 
-class Device(BaseModel):
+class DeviceBase(BaseModel):
     hostname: str = Field(..., description="Device Hostname")
     ip_address: str = Field(..., description="Unique device ID")
     os: OS.WINDOWS
     assigned_user: str = Field(description="User Id of the device's assigned user")
     location: str
     status: DeviceStatus.INACTIVE
+
+class Device(DeviceBase):
     ci_id: str = Field(..., description="Configuration item ID")
     device_id: str = Field(..., description="Unique device ID")
-    user_ids: List[str] = Field(default_factory=list)
 
     @classmethod
     def create_new(cls, **data) -> "Device":
@@ -79,21 +86,20 @@ class Device(BaseModel):
             data.pop("_id")
         return cls(**data)
 
-class DeviceCreate(Device):
+class DeviceCreate(DeviceBase):
     pass
 
-
-class Application(BaseModel):
-    
+class ApplicationBase(BaseModel):
     name: str
     owner: str
     #TODO check default value
     type: ApplicationType = ApplicationType.SAAS
     integrations: List[str] = Field(default_factory=list)
     usage_count: int = 0
+
+class Application(ApplicationBase):
     ci_id: str = Field(..., description="Configuration item ID")
     app_id: str = Field(..., description="Unique application ID")
-    user_ids: List[str] = Field(default_factory=list)
 
     @classmethod
     def create_new(cls, **data) -> "Application":
@@ -113,5 +119,5 @@ class Application(BaseModel):
             data.pop("_id")
         return cls(**data)
 
-class ApplicationCreate(Application):
+class ApplicationCreate(ApplicationBase):
     pass
