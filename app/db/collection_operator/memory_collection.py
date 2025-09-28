@@ -7,7 +7,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 class InsertOneResult:
     """Mock InsertOneResult for in-memory operations."""
     def __init__(self, inserted_id: str):
