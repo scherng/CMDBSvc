@@ -2,8 +2,7 @@ from fastapi import APIRouter, HTTPException
 from datetime import datetime, timezone
 from app.core.schemas import EntityIngestRequest, EntityIngestResponse, SingleEntityIngestResponse
 from app.core.ingest.ingest_pipeline import IngestPipeline
-from app.db.models import User, Application
-from app.config.settings import settings
+from app.db.models import User, Application, EntityType
 import logging
 
 router = APIRouter()
@@ -26,7 +25,7 @@ async def ingest_data(request: EntityIngestRequest):
     """
     logger.info(f"Ingesting {len(request.data)} items")
     try:
-        pipeline = IngestPipeline(enable_llm_mapping=settings.enable_ai_field_mapping)
+        pipeline = IngestPipeline()
 
         # Process all data items. Currently assume everything is on bulk. 
         # This part will be the candidate for optimization with streaming 
@@ -43,9 +42,9 @@ async def ingest_data(request: EntityIngestRequest):
         for entity in entities:
             # Determine entity type and extract appropriate ID
             if isinstance(entity, User):
-                entity_type = "user"
+                entity_type = EntityType.USER
             elif isinstance(entity, Application):
-                entity_type = "application"
+                entity_type = EntityType.APPLICATION
             else:
                 logger.warning(f"Unknown entity type for {entity}")
                 continue

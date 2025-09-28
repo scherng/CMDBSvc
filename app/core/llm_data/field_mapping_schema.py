@@ -3,9 +3,12 @@ Field Mapping Schema for AI-Enhanced Entity Parser
 
 Defines canonical field names and their common variations to help the AI field mapper
 understand which incoming field names should map to which standardized fields.
+
+Define functions needed for the main field mapper logic
 """
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass
 
 FIELD_MAPPING_SCHEMA = {
     "users": {
@@ -303,6 +306,24 @@ FIELD_MAPPING_SCHEMA = {
     }
 }
 
+@dataclass
+class FieldMapping:
+    """Represents a field mapping result."""
+    original_field: str
+    canonical_field: Optional[str]
+    confidence: float
+    reasoning: str
+
+@dataclass
+class MappingResult:
+    """Represents the complete mapping result for an entity."""
+    entity_type: str
+    mapped_data: Dict[str, Any]
+    mappings: List[FieldMapping]
+    unmapped_fields: List[str]
+    confidence_score: float
+
+
 def get_canonical_fields(entity_type: str) -> Dict[str, Any]:
     """Get canonical fields for a specific entity type."""
     return FIELD_MAPPING_SCHEMA.get(entity_type, {}).get("canonical_fields", {})
@@ -336,3 +357,27 @@ def get_field_default(entity_type: str, canonical_field: str) -> Any:
 def get_supported_entity_types() -> List[str]:
     """Get list of supported entity types."""
     return list(FIELD_MAPPING_SCHEMA.keys())
+
+def generate_exact_mappings(self, input_fields: List[str], entity_type: str) -> List[FieldMapping]:
+        """Generate exact match mappings as fallback."""
+        canonical_fields = get_canonical_fields(entity_type)
+        mappings = []
+
+        for field in input_fields:
+            if field in canonical_fields:
+                mapping = FieldMapping(
+                    original_field=field,
+                    canonical_field=field,
+                    confidence=1.0,
+                    reasoning="Exact match"
+                )
+            else:
+                mapping = FieldMapping(
+                    original_field=field,
+                    canonical_field=None,
+                    confidence=0.0,
+                    reasoning="No exact match found"
+                )
+            mappings.append(mapping)
+
+        return mappings

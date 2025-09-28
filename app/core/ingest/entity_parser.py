@@ -1,25 +1,27 @@
 from typing import Dict, Any, Literal, Tuple, Optional, List
-from app.db.models import User, Application
-from .llm_field_mapper import LLMFieldMapper, MappingResult
+from .field_normalizer import FieldNormalizer, MappingResult
 import logging
+from app.config.settings import settings
+from app.core.entity_data.entity_manager import EntityManager
+from app.db.models import User, Application, UserCreate, ApplicationCreate, EntityType
+
 
 logger = logging.getLogger(__name__)
 
 
-class EntityDetector:
+class EntityParser:
     """
-    AI-enhanced entity type detection and field normalization.
-    Determines whether incoming data represents a User, Application, or Device
-    and normalizes field names to canonical format.
+    A thin wrapper on top of the FieldNormalizer
     """
 
-    def __init__(self, enable_llm_mapping: bool = True):
+    def __init__(self):
         """Initialize the entity detector with optional LLM field mapping."""
-        self.llm_mapper = LLMFieldMapper() if enable_llm_mapping else None
-        self.enable_llm_mapping = enable_llm_mapping
-        logger.info(f"EntityDetector initialized with LLM mapping: {enable_llm_mapping}")
+        self.normalizer = FieldNormalizer()
+        self.entity_mgr = EntityManager()
+        self.enable_llm_mapping = settings.enable_ai_field_mapping
+        logger.info(f"EntityDetector initialized with LLM mapping: {self.enable_llm_mapping}")
 
-    async def detect_and_normalize(self, data: Dict[str, Any]) -> Tuple[str, Dict[str, Any], Optional[MappingResult]]:
+    async def detect_and_normalize(self, data: Dict[str, Any]) -> Tuple[EntityType, Dict[str, Any]]:
         """
         Detect entity type and normalize field names using AI.
 
@@ -29,81 +31,79 @@ class EntityDetector:
         Returns:
             Tuple of (entity_type, normalized_data, mapping_result)
         """
-        if self.llm_mapper and self.enable_llm_mapping:
-            try:
-                mapping_result = await self.llm_mapper.detect_and_normalize(data)
+        try:
+            mapping_result = await self.normalizer.detect_and_normalize(data)
 
-                # Convert entity type to match existing API (users -> user, applications -> application)
-                entity_type_map = {
-                    "users": "user",
-                    "applications": "application",
-                    "devices": "device"
-                }
-                entity_type = entity_type_map.get(mapping_result.entity_type, mapping_result.entity_type)
+            # Convert entity type to match existing API (users -> user, applications -> application)
+            entity_type_map = {
+                "users": EntityType.USER,
+                "applications": EntityType.APPLICATION,
+                "devices": EntityType.DEVICE
+            }
+            entity_type = entity_type_map.get(mapping_result.entity_type, mapping_result.entity_type)
 
-                logger.info(f"LLM detection successful: {entity_type}, confidence: {mapping_result.confidence_score:.2f}")
-                return entity_type, mapping_result.mapped_data, mapping_result
+            logger.info(f"Parse successful: {entity_type}, confidence: {mapping_result.confidence_score:.2f}")
+            return entity_type, mapping_result.mapped_data
 
-            except Exception as e:
-                logger.error(f"LLM detection failed: {e}, falling back to heuristic detection")
-                # Fall through to heuristic detection
+        except Exception as e:
+            logger.error(f"Parse failure: {e}, returning error")
+            # Fall through to heuristic detection
 
-        # Fallback to original heuristic detection
-        entity_type = self.detect_entity_type(data)
-        return entity_type, data, None
+        # Log field mapping information
+        if mapping_result:
+            confidence = self.detector.get_mapping_confidence(mapping_result)
+            unmapped_fields = self.detector.get_unmapped_fields(mapping_result)
+            logger.info(f"Field mapping completed - confidence: {confidence:.2f}, unmapped fields: {unmapped_fields}")
 
-    @staticmethod
-    def detect_entity_type(data: Dict[str, Any]) -> Literal["user", "application"]:
-        """
-        Detect entity type based on data fields.
+            # Log individual field mappings for debugging
+            for mapping in mapping_result.mappings:
+                if mapping.canonical_field and mapping.confidence >= 0.7:
+                    logger.debug(f"Mapped: {mapping.original_field} -> {mapping.canonical_field} (confidence: {mapping.confidence:.2f})")
+                elif mapping.canonical_field is None:
+                    logger.warning(f"Could not map field: {mapping.original_field}")
 
-        Args:
-            data: Input data dictionary
+        return entity_type, data
 
-        Returns:
-            "user" or "application"
-
-        Raises:
-            ValueError: If entity type cannot be determined
-        """
-
-        # User-specific field indicators
-        user_indicators = {"mfa_enabled", "team", "last_login", "assigned_application_ids"}
-
-        # Application-specific field indicators
-        app_indicators = {"usage_count", "integrations", "type", "user_ids", "owner"}
-
-        # Check for user indicators
-        user_matches = sum(1 for key in data.keys() if key in user_indicators)
-
-        # Check for application indicators
-        app_matches = sum(1 for key in data.keys() if key in app_indicators)
-
-        logger.debug(f"Entity detection - User indicators: {user_matches}, App indicators: {app_matches}")
-
-        if user_matches > app_matches:
-            logger.info("Detected entity type: user")
-            return "user"
-        elif app_matches > user_matches:
-            logger.info("Detected entity type: application")
-            return "application"
-        elif user_matches == app_matches == 0:
-            # Fallback: check for required fields
-            if "name" in data:
-                # Default to user if only basic fields present
-                logger.info("Detected entity type: user (fallback)")
-                return "user"
+        
+    async def parse(self, entity_type: EntityType, normalized_data: Dict[str, Any]) -> User | Application:
+            if entity_type == EntityType.USER:
+                return await self._create_user(normalized_data)
+            elif entity_type == EntityType.APPLICATION:
+                return await self._create_application(normalized_data)
             else:
-                raise ValueError("Cannot determine entity type: no identifying fields found")
-        else:
-            # Equal matches - check for distinguishing fields
-            if "owner" in data:
-                logger.info("Detected entity type: application (owner field present)")
-                return "application"
-            else:
-                logger.info("Detected entity type: user (default)")
-                return "user"
+                raise ValueError(f"Unsupported entity type: {entity_type}")
 
+
+    async def _create_user(self, data: Dict[str, Any]) -> User:
+        try:
+            # Validate and create user data model
+            user_create = UserCreate(**data)
+
+            # Create user in repository
+            user = self.entity_mgr.user_op.create(user_create)
+
+            logger.info(f"User created successfully with ci_id: {user.ci_id}")
+            return user
+
+        except Exception as e:
+            logger.error(f"Failed to create user: {str(e)}")
+            raise ValueError(f"User creation failed: {str(e)}")
+
+    async def _create_application(self, data: Dict[str, Any]) -> Application:
+        try:
+            # Validate and create application data model
+            logger.info(f"In create {data}")
+            app_create = ApplicationCreate(**data)
+
+            # Create application in repository
+            application = self.entity_mgr.app_op.create(app_create)
+
+            logger.info(f"Application created successfully with ci_id: {application.ci_id}")
+            return application
+
+        except Exception as e:
+            logger.error(f"Failed to create application: {str(e)}")
+            raise ValueError(f"Application creation failed: {str(e)}")
 
     def get_mapping_confidence(self, mapping_result: Optional[MappingResult]) -> float:
         """Get the confidence score from mapping result."""

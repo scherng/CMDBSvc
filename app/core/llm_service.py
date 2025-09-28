@@ -30,45 +30,42 @@ class LLMService:
         """Initialize the service with API key from settings or fallback."""
         # Try to get API key from settings first
         self._api_key = settings.openai_api_key
-
-        # Fallback to the hardcoded key if not in settings
+        if not settings.enable_ai_field_mapping:
+            logger.info("LLM is not enabled for this run")
+            return
+        
         if not self._api_key:
-            try:
-                from app.core.prompt.llm_query_handler import apiKey
-                self._api_key = apiKey
-                logger.info("Using fallback API key from llm_query_handler")
-            except ImportError:
-                logger.warning("No API key available for LLM services")
-
-        if self._api_key:
-            logger.info("LLM Service initialized with API key")
-        else:
-            logger.warning("LLM Service initialized without API key - services will be disabled")
+            logger.warning("No API key available for LLM services - LLM will not be available")
+            return
 
     def get_llm(self) -> Optional[OpenAI]:
         """Get LLM instance optimized for field mapping tasks."""
+        if not settings.enable_ai_field_mapping:
+            logger.info("LLM is not enabled for this run")
+            return None
+        
         if not self._api_key:
             logger.warning("No API key available for field mapping LLM")
             return None
 
         if self._llm is None:
             try:
-                self._field_mapping_llm = OpenAI(
+                self._llm = OpenAI(
                     model="gpt-4",
                     temperature=0.1,  # Low temperature for consistent field mapping
                     api_key=self._api_key
                 )
-                logger.info("Field mapping LLM initialized")
+                logger.info("LLM object is initialized")
             except Exception as e:
                 logger.error(f"Failed to initialize field mapping LLM: {e}")
                 return None
 
-        return self._field_mapping_llm
+        return self._llm
     
 
     def is_available(self) -> bool:
         """Check if LLM services are available."""
-        return self._api_key is not None
+        return settings.enable_ai_field_mapping and self._api_key is not None
 
     def get_api_key(self) -> Optional[str]:
         """Get the configured API key."""
