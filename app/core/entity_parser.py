@@ -1,4 +1,5 @@
 from typing import Dict, Any, Literal
+from app.db.models import User, Application
 import logging
 
 logger = logging.getLogger(__name__)
@@ -61,3 +62,10 @@ class EntityDetector:
             else:
                 logger.info("Detected entity type: user (default)")
                 return "user"
+
+
+    async def _ai_enhanced_detection(data: Dict[str, Any]) -> Literal["user", "application"]:
+        pass
+
+    async def _ai_enhanced_extraction(self, raw_data: Dict[str, Any], config: Dict[str, Any]) -> User | Application:
+        pass

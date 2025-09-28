@@ -9,28 +9,12 @@ class ApplicationType(str, Enum):
     SAAS = "SaaS"
     ON_PREM = "on-prem"
 
-
-class UserBase(BaseModel):
+class User(BaseModel):
     name: str
     team: Optional[str] = None
     mfa_status: bool = False
     last_login: Optional[datetime] = None
     assigned_application_ids: List[str] = Field(default_factory=list)
-
-
-class UserCreate(UserBase):
-    pass
-
-
-class UserUpdate(BaseModel):
-    name: Optional[str] = None
-    team: Optional[str] = None
-    mfa_status: Optional[bool] = None
-    last_login: Optional[datetime] = None
-    assigned_application_ids: Optional[List[str]] = None
-
-
-class User(UserBase):
     ci_id: str = Field(..., description="Configuration item ID")
     user_id: str = Field(..., description="Unique user ID")
 
@@ -52,6 +36,10 @@ class User(UserBase):
             data.pop("_id")
         return cls(**data)
 
+class UserCreate(User):
+    pass
+
+
 class OS (str, Enum):
     WINDOWS = "windows"
     MACOS = "macOS"
@@ -62,36 +50,47 @@ class DeviceStatus(str, Enum):
     ACTIVE = "active"
     SUSPENDED = "suspended"
 
-class DeviceBase(BaseModel):
-    hostname: str
-    ip_address: str
+class Device(BaseModel):
+    hostname: str = Field(..., description="Device Hostname")
+    ip_address: str = Field(..., description="Unique device ID")
     os: OS.WINDOWS
-    assigned_user: str #indicates the id
+    assigned_user: str = Field(description="User Id of the device's assigned user")
     location: str
     status: DeviceStatus.INACTIVE
+    ci_id: str = Field(..., description="Configuration item ID")
+    device_id: str = Field(..., description="Unique device ID")
+    user_ids: List[str] = Field(default_factory=list)
 
-class ApplicationBase(BaseModel):
+    @classmethod
+    def create_new(cls, **data) -> "Device":
+        return cls(
+            ci_id=f"CI-{uuid.uuid4().hex[:12].upper()}",
+            app_id=f"DVC-{uuid.uuid4().hex[:12].upper()}",
+            **data
+        )
+
+    def to_mongo(self) -> Dict[str, Any]:
+        data = self.model_dump(exclude_none=True)
+        return data
+
+    @classmethod
+    def from_mongo(cls, data: Dict[str, Any]) -> "Device":
+        if "_id" in data:
+            data.pop("_id")
+        return cls(**data)
+
+class DeviceCreate(Device):
+    pass
+
+
+class Application(BaseModel):
+    
     name: str
     owner: str
     #TODO check default value
     type: ApplicationType = ApplicationType.SAAS
     integrations: List[str] = Field(default_factory=list)
     usage_count: int = 0
-
-
-class ApplicationCreate(ApplicationBase):
-    pass
-
-
-class ApplicationUpdate(BaseModel):
-    name: Optional[str] = None
-    owner: Optional[str] = None
-    type: Optional[ApplicationType] = None
-    integrations: Optional[List[str]] = None
-    usage_count: Optional[int] = None
-
-
-class Application(ApplicationBase):
     ci_id: str = Field(..., description="Configuration item ID")
     app_id: str = Field(..., description="Unique application ID")
     user_ids: List[str] = Field(default_factory=list)
@@ -114,3 +113,5 @@ class Application(ApplicationBase):
             data.pop("_id")
         return cls(**data)
 
+class ApplicationCreate(Application):
+    pass

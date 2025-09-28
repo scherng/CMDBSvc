@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Any, Dict, Optional, Union, Literal, List
+from typing import Any, Dict, Optional, Literal, List
 from datetime import datetime
 from app.db.models import User, Application
 
@@ -17,6 +17,6 @@ class EntityIngestResponse(BaseModel):
     results: List[SingleEntityIngestResponse] = Field(..., description="Response for each ingested message")
 
 class EntityResponse(BaseModel):
-    ci_id: str
     entity_type: Literal["user", "application"]
-    entity_data: Union[User, Application]
+    entity_data: User | Application
+ 

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Iterator, Union
+from typing import Any, Dict, List, Iterator
 
 
 class CursorInterface(ABC):

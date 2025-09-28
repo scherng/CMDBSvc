@@ -1,5 +1,5 @@
-from typing import List, Optional, Dict, Any
-from app.db.models import Application, ApplicationCreate, ApplicationUpdate, ApplicationType
+from typing import List, Optional
+from app.db.models import Application, ApplicationCreate, ApplicationType
 from app.db.collection_operator.collection_interface import CollectionInterface
 import logging
 

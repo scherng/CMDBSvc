@@ -1,37 +1,18 @@
-from typing import Optional, Dict, Any, Union, List
+from typing import Optional, Dict, Any, List
 import logging
-from app.core.entity_detector import EntityDetector
+from app.core.entity_parser import EntityDetector
+from app.core.entity_manager import EntityManager
 from app.db.models import User, Application, UserCreate, ApplicationCreate
-from app.db.connection import get_user_operator, get_application_operator
 
 logger = logging.getLogger(__name__)
 
 
-class EntityPipeline:
-    """
-    Pipeline for processing incoming data and creating appropriate CMDB entities.
-    Handles entity detection, validation, and creation of User or Application records.
-    """
-
+class IngestPipeline:
     def __init__(self):
         self.detector = EntityDetector()
-        self.user_repo = get_user_operator()
-        self.app_repo = get_application_operator()
+        self.entity_mgr = EntityManager()
 
-    async def process_single(self, data: Dict[str, Any]) -> Union[User, Application]:
-        """
-        Process a single data item and create appropriate entity.
-
-        Args:
-            data: Input data to process
-
-        Returns:
-            Created User or Application entity
-
-        Raises:
-            ValueError: If entity type cannot be determined or creation fails
-        """
-
+    async def process_single(self, data: Dict[str, Any]) -> User | Application:
         try:
             # Step 1: Detect entity type
             entity_type = self.detector.detect_entity_type(data)
@@ -49,22 +30,7 @@ class EntityPipeline:
             logger.error(f"Pipeline processing failed for single item: {str(e)}")
             raise
 
-    async def process(self, data: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]] = None) -> List[Union[User, Application]]:
-        """
-        Process a list of data items and create appropriate entities.
-        Can handle mixed entity types in the same request.
-
-        Args:
-            data: List of input data to process
-            metadata: Optional metadata (currently unused but kept for future use)
-
-        Returns:
-            List of created User or Application entities
-
-        Raises:
-            ValueError: If entity type cannot be determined or creation fails
-        """
-
+    async def process(self, data: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]] = None) -> List[User | Application]:
         logger.info(f"Processing {len(data)} items")
         entities = []
         errors = []
@@ -89,7 +55,6 @@ class EntityPipeline:
         return entities
 
     async def _create_user(self, data: Dict[str, Any]) -> User:
-        """Create a User entity from the provided data."""
         try:
             # Validate and create user data model
             user_create = UserCreate(**data)
@@ -105,7 +70,6 @@ class EntityPipeline:
             raise ValueError(f"User creation failed: {str(e)}")
 
     async def _create_application(self, data: Dict[str, Any]) -> Application:
-        """Create an Application entity from the provided data."""
         try:
             # Validate and create application data model
             app_create = ApplicationCreate(**data)
@@ -119,26 +83,3 @@ class EntityPipeline:
         except Exception as e:
             logger.error(f"Failed to create application: {str(e)}")
             raise ValueError(f"Application creation failed: {str(e)}")
-
-    def get_entity_by_ci_id(self, ci_id: str) -> Optional[Union[User, Application]]:
-        """
-        Retrieve an entity by its CI ID.
-
-        Args:
-            ci_id: Configuration Item ID
-
-        Returns:
-            User or Application entity if found, None otherwise
-        """
-        # TODO I think we need to add a lookup table 
-        # Try to find as user first
-        user = self.user_repo.find_by_ci_id(ci_id)
-        if user:
-            return user
-
-        # Try to find as application
-        application = self.app_repo.find_by_ci_id(ci_id)
-        if application:
-            return application
-
-        return None

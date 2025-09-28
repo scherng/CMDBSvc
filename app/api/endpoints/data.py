@@ -1,8 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
-from datetime import datetime, timezone
 from typing import List
 from app.core.schemas import EntityResponse
-from app.core.pipeline import EntityPipeline
+from app.core.entity_manager import EntityManager
 from app.db.models import User, Application
 
 router = APIRouter()
@@ -10,20 +9,9 @@ router = APIRouter()
 
 @router.get("/ci/{ci_id}", response_model=EntityResponse)
 async def fetch_data_by_ci_id(ci_id: str):
-    """
-    Fetch CMDB entity details by Configuration Item ID.
-
-    Retrieves either a User or Application entity based on the provided CI ID.
-    The response includes the entity type and full entity data.
-
-    - **ci_id**: The unique Configuration Item identifier
-
-    Returns the complete entity record with type information.
-    """
-
     try:
-        pipeline = EntityPipeline()
-        entity = pipeline.get_entity_by_ci_id(ci_id)
+        entity_mgr = EntityManager()
+        entity = entity_mgr.get_entity_by_ci_id(ci_id)
 
         if not entity:
             raise HTTPException(
@@ -43,7 +31,6 @@ async def fetch_data_by_ci_id(ci_id: str):
             )
 
         return EntityResponse(
-            ci_id=entity.ci_id,
             entity_type=entity_type,
             entity_data=entity
         )
@@ -57,31 +44,6 @@ async def fetch_data_by_ci_id(ci_id: str):
             status_code=500,
             detail=f"Failed to retrieve entity: {str(e)}"
         )
-
-
-# Optional: Add separate endpoints for specific entity types
-@router.get("/users/{ci_id}")
-async def get_user_by_ci_id(ci_id: str):
-    """Get User entity by CI ID."""
-    pipeline = EntityPipeline()
-    user = pipeline.user_repo.find_by_ci_id(ci_id)
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return user
-
-
-@router.get("/applications/{ci_id}")
-async def get_application_by_ci_id(ci_id: str):
-    """Get Application entity by CI ID."""
-    pipeline = EntityPipeline()
-    application = pipeline.app_repo.find_by_ci_id(ci_id)
-
-    if not application:
-        raise HTTPException(status_code=404, detail="Application not found")
-
-    return application
 
 
 @router.get("/users", response_model=List[User])
@@ -98,8 +60,8 @@ async def list_all_users(
     Returns a list of all User entities.
     """
     try:
-        pipeline = EntityPipeline()
-        users = pipeline.user_repo.find_all(skip=skip, limit=limit)
+        entity_mgr = EntityManager()
+        users = entity_mgr.user_op.find_all(skip=skip, limit=limit)
         return users
     except Exception as e:
         raise HTTPException(
@@ -122,8 +84,8 @@ async def list_all_applications(
     Returns a list of all Application entities.
     """
     try:
-        pipeline = EntityPipeline()
-        applications = pipeline.app_repo.find_all(skip=skip, limit=limit)
+        entity_mgr = EntityManager()
+        applications = entity_mgr.app_op.find_all(skip=skip, limit=limit)
         return applications
     except Exception as e:
         raise HTTPException(
