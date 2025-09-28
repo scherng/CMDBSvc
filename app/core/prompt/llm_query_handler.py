@@ -1,5 +1,6 @@
 from llama_index.core.query_engine import CustomQueryEngine
 from llama_index.core.llms import ChatMessage, ChatResponse, MessageRole
+from llama_index.core import VectorStoreIndex, Settings, Document
 
 from typing import List, Dict, Any, Optional
 from pydantic import Field
@@ -9,25 +10,31 @@ from app.core.llm_data.db_enhanced_schema import (
     get_supported_collections,
     get_supported_collections_schemas
 )
-from .query_router import QueryRouter
+from .collection_query_router import CollectionQueryRouter
 from app.db.connector.database_interface import DatabaseInterface
 from app.core.llm_service import llm_service
+from app.config.settings import settings
 
 import json
 import logging
+import openai
+
+openai.api_key = settings.openai_api_key
 
 logger = logging.getLogger(__name__)
 # Keep apiKey for backward compatibility and fallback
 
 class LLMToDbQueryHandler:
     def __init__(self, database: DatabaseInterface):
-        self.query_engine = LLMQueryEngine()
-        self.query_router = QueryRouter(database) if database else None
+        self.query_engine = SimpleLLMQuery()
+        self.query_router = CollectionQueryRouter(database) if database else None
         
 
     def prompt(self, prompt: str) -> Dict[str, Any]:
         """Process natural language prompt and execute the generated MongoDB query."""
         logger.info("In handlePrompt")
+        
+        #Defer to QueryEngine for the prompting with LLM
         response = self.query_engine.custom_query(prompt)  # Use the inherited query method from CustomQueryEngine
         result = "error"
         try:
@@ -64,6 +71,7 @@ class LLMToDbQueryHandler:
             }
 
         logger.info(f"finished parsing llm output with result: {result}")
+        
         # Parse the JSON string back to dict for the API response
         try:
             if "error" not in result and "execution" in result:
@@ -75,6 +83,7 @@ class LLMToDbQueryHandler:
         except json.JSONDecodeError:
             logger.error(f"Failed to parse JSON response: {result}")
             return {"error": "Failed to parse response", "raw_response": result}
+
 
     def execute_mongo_query(self, mongo_query: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a MongoDB query using the QueryRouter."""
@@ -93,17 +102,19 @@ class LLMToDbQueryHandler:
                 "error": f"Query execution failed: {str(e)}",
                 "query": mongo_query
             }
-
-        
-class LLMQueryEngine(CustomQueryEngine):
+            
+# Use a simple vector store index for the LLM prompting
+class SimpleLLMQuery():
     def __init__(self):
-        super().__init__()
-
+        self.jsonObj = json.dumps(ENHANCED_SCHEMA, indent=2)
+        self.index = VectorStoreIndex.from_documents([Document(text=self.jsonObj)])
+        Settings.llm = llm_service.get_llm()
+    
     def custom_query(self, query_str: str) -> str:
-        """Process natural language query and convert to MongoDB"""
-        # Create context-aware prompt        
-        schema_context = json.dumps(ENHANCED_SCHEMA, indent=2)
-
+        retriever = self.index.as_retriever()
+        nodes = retriever.retrieve(query_str)
+        
+        context = "\n\n".join([node.node.text for node in nodes])
         system_prompt = f"""You are a MongoDB query expert. Convert natural language to MongoDB queries.
 
 IMPORTANT RULES:
@@ -121,15 +132,11 @@ Query Classification:
 - Aggregation: joins, grouping, counting, complex transformations
 
 Collections Schema, Context and Examples:
-{schema_context}
+{self.jsonObj}
 
 """
+        user_query = f"Can you convert to MongoDB query: {query_str}"
 
-# Available MongoDB Collections:
-# {json.dumps(get_supported_collections(), indent=2)}
-
-        user_query = f"Convert to MongoDB query: {query_str}"
-        
         # Create messages
         messages = [
             ChatMessage(role=MessageRole.SYSTEM, content=system_prompt),
@@ -145,5 +152,61 @@ Collections Schema, Context and Examples:
 
         # Get LLM response
         response = llm.chat(messages)
+        
+        logger.info(f"response is ${response}")
 
         return response
+               
+        
+# class LLMQueryEngine(CustomQueryEngine):
+#     def __init__(self):
+#         super().__init__()
+
+#     def custom_query(self, query_str: str) -> str:
+#         """Process natural language query and convert to MongoDB"""
+#         # Create context-aware prompt        
+#         schema_context = json.dumps(ENHANCED_SCHEMA, indent=2)
+
+#         system_prompt = f"""You are a MongoDB query expert. Convert natural language to MongoDB queries.
+
+# IMPORTANT RULES:
+# 1. Return ONLY valid JSON in the specified format
+# 2. For simple queries use: {{"collection": "name", "query": {{...}}, "limit": number}}
+# 3. For complex queries use: {{"collection": "name", "pipeline": [...]}}
+# 4. Use proper MongoDB operators: $eq, $gt, $lt, $gte, $lte, $in, $regex, $match, $group, $lookup
+# 5. For text search, use $regex with $options: "i"
+# 6. For ObjectId references, use string format (will be converted)
+# 7. Consider relationships between collections
+# 8. ONLY use the field that are defined in the Collection schemas
+
+# Query Classification:
+# - Simple find: field filters, simple conditions
+# - Aggregation: joins, grouping, counting, complex transformations
+
+# Collections Schema, Context and Examples:
+# {schema_context}
+
+# """
+
+# # Available MongoDB Collections:
+# # {json.dumps(get_supported_collections(), indent=2)}
+
+#         user_query = f"Convert to MongoDB query: {query_str}"
+        
+#         # Create messages
+#         messages = [
+#             ChatMessage(role=MessageRole.SYSTEM, content=system_prompt),
+#             ChatMessage(role=MessageRole.USER, content=user_query)
+#         ]
+        
+#         logger.info("Getting ready for custom query")
+
+#         # Get LLM instance from service
+#         llm = llm_service.get_llm()
+#         if not llm:
+#             raise RuntimeError("Query LLM not available - check API key configuration")
+
+#         # Get LLM response
+#         response = llm.chat(messages)
+
+#         return response

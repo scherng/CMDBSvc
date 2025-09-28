@@ -116,6 +116,7 @@ classDiagram
 
     IngestionPipeline --> EntityParser
     EntityParser --> EntityManager
+    EntityManager --> CollectionOperator
     EntityParser --> FieldNormalizer
     FieldNormalizer --> LLMService
 ```
@@ -137,15 +138,15 @@ classDiagram
         +custom_query(query_str) ChatResponse
     }
 
-    class QueryRouter {
+    class CollectionQueryRouter {
         -collection_operator: CollectionOperator
         +execute(mongo_query) Dict
         -_format_results(results) Dict
     }
 
     LLMToDbQueryHandler --> SimpleLLMQuery
-    LLMToDbQueryHandler --> QueryRouter
-    QueryRouter --> CollectionOperator
+    LLMToDbQueryHandler --> CollectionQueryRouter
+    CollectionQueryRouter --> CollectionOperator
 
 ```
 
