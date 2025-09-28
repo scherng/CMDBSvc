@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import List
 from app.core.schemas import EntityResponse
 from app.core.entity_data.entity_manager import EntityManager
-from app.db.models import User, Application
+from app.db.models import User, Application, EntityType
 
 router = APIRouter()
 
@@ -10,6 +10,8 @@ router = APIRouter()
 @router.get("/ci/{ci_id}", response_model=EntityResponse)
 async def fetch_data_by_ci_id(ci_id: str):
     try:
+        # Having EntityManager exposed to a high level API interface is not great, 
+        # but restructuring it now might also be overkill
         entity_mgr = EntityManager()
         entity = entity_mgr.get_entity_by_ci_id(ci_id)
 
@@ -18,12 +20,11 @@ async def fetch_data_by_ci_id(ci_id: str):
                 status_code=404,
                 detail=f"Entity with CI ID '{ci_id}' not found"
             )
-
         # Determine entity type and creation timestamp
         if isinstance(entity, User):
-            entity_type = "user"
+            entity_type = EntityType.USER
         elif isinstance(entity, Application):
-            entity_type = "application"
+            entity_type = EntityType.APPLICATION
         else:
             raise HTTPException(
                 status_code=500,

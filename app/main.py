@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from app.config.settings import settings
-from app.api.endpoints import ingest, data
+from app.api.endpoints import ingest, data, prompt
 from app.db.db_factory import DatabaseFactory, DatabaseType
 
 logging.basicConfig(
@@ -42,10 +42,12 @@ async def lifespan(app: FastAPI):
     DatabaseFactory.disconnect()
     logger.info("Shutting down CMDB Service...")
 
+
 def setupRouter() -> APIRouter:
     api_router = APIRouter()
     api_router.include_router(ingest.router, tags=["ingest"])
     api_router.include_router(data.router, tags=["data"])
+    api_router.include_router(prompt.router, tags=["ask"])
     return api_router
 
 def create_application() -> FastAPI:
