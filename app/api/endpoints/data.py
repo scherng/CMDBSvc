@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import List
 from app.core.schemas import EntityResponse
-from app.core.entity_manager import EntityManager
+from app.core.entity_data.entity_manager import EntityManager
 from app.db.models import User, Application
 
 router = APIRouter()

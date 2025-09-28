@@ -7,68 +7,68 @@ from typing import Dict, List, Any
 ENHANCED_SCHEMA = {
     "database_name": "it_asset_management",
     "description": "Configuration Items Management System with Users, Applications, and Devices",
-    
     "collections": {
         "users": {
             "description": "User accounts in the ci system",
             "fields": {
                 "_id": {
-                    "type": "ObjectId", 
+                    "type": "ObjectId",
                     "description": "MongoDB unique identifier"
                 },
                 "name": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Full name of the user",
                     "required": True,
                     "example": "John Doe"
                 },
                 "team": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Team or department the user belongs to",
                     "required": False,
                     "example": "Engineering"
                 },
                 "mfa_enabled": {
-                    "type": "boolean", 
+                    "type": "boolean",
                     "description": "Multi-factor authentication enabled status",
                     "default": False,
                     "example": True
                 },
                 "last_login": {
-                    "type": "datetime", 
+                    "type": "datetime",
                     "description": "Timestamp of user's last login",
                     "required": False,
                     "example": "2024-01-15T10:30:00Z"
                 },
                 "assigned_application_ids": {
-                    "type": "array[string]", 
+                    "type": "array[string]",
                     "description": "List of application IDs assigned to this user",
                     "default": [],
-                    "example": ["APP-ABC123DEF456", "APP-GHI789JKL012"]
+                    "example": [
+                        "APP-ABC123DEF456",
+                        "APP-GHI789JKL012"
+                    ]
                 },
                 "ci_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Configuration Item ID (CMDB identifier)",
                     "required": True,
                     "pattern": "CI-[A-F0-9]{12}",
                     "example": "CI-ABC123DEF456"
                 },
                 "user_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Unique user identifier",
                     "required": True,
                     "pattern": "USR-[A-F0-9]{12}",
                     "example": "USR-123ABC456DEF"
+                },
+                "permission_group": {
+                    "type": "array[string]",
+                    "description": "User's provisioned permission",
+                    "required": False,
+                    "default": []
                 }
             },
-            "indexes": [
-                {"user_id": 1},
-                {"ci_id": 1},
-                {"team": 1},
-                {"mfa_enabled": 1},
-                {"last_login": -1},
-                {"assigned_application_ids": 1}
-            ],
             "relationships": {
                 "applications": "Many-to-many via assigned_application_ids (users.assigned_application_ids -> applications.app_id)",
                 "devices": "One-to-many via assigned_user (users.user_id -> devices.assigned_user)"
@@ -76,7 +76,7 @@ ENHANCED_SCHEMA = {
             "common_queries": [
                 "Find users by team",
                 "Users with MFA enabled/disabled",
-                "Users who haven't logged in recently", 
+                "Users who haven't logged in recently",
                 "Users assigned to specific applications",
                 "Active vs inactive users",
                 "Users without devices assigned"
@@ -87,69 +87,66 @@ ENHANCED_SCHEMA = {
                 "security": "Monitor login patterns and access assignments"
             }
         },
-        
         "applications": {
             "description": "Applications and software systems in the enterprise",
             "fields": {
                 "_id": {
-                    "type": "ObjectId", 
+                    "type": "ObjectId",
                     "description": "MongoDB unique identifier"
                 },
                 "name": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Application name",
                     "required": True,
                     "example": "Slack"
                 },
                 "owner": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Application owner or responsible person",
                     "required": True,
                     "example": "Engineering"
                 },
                 "type": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Application deployment type",
-                    "enum": ["SaaS", "on-prem"],
+                    "enum": [
+                        "SaaS",
+                        "on-prem"
+                    ],
                     "default": "SaaS",
                     "example": "SaaS"
                 },
                 "integrations": {
-                    "type": "array[string]", 
+                    "type": "array[string]",
                     "description": "List of integrated systems or APIs",
                     "default": [],
-                    "example": ["LDAP", "SSO", "API-Gateway"]
+                    "example": [
+                        "LDAP",
+                        "SSO",
+                        "API-Gateway"
+                    ]
                 },
                 "usage_count": {
-                    "type": "number", 
+                    "type": "number",
                     "description": "Number of times application has been accessed",
                     "default": 0,
                     "example": 1250
                 },
                 "ci_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Configuration Item ID (CMDB identifier)",
                     "required": True,
                     "pattern": "CI-[A-F0-9]{12}",
                     "example": "CI-APP789XYZ123"
                 },
                 "app_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Unique application identifier",
                     "required": True,
                     "pattern": "APP-[A-F0-9]{12}",
                     "example": "APP-789XYZ123ABC"
                 }
             },
-            "indexes": [
-                {"app_id": 1},
-                {"ci_id": 1},
-                {"name": 1},
-                {"owner": 1},
-                {"type": 1},
-                {"usage_count": -1},
-                {"user_ids": 1}
-            ],
             "relationships": {
                 "users": "Many-to-many via user_ids (applications.user_ids -> users.user_id)",
                 "reverse_users": "Many-to-many via assigned_application_ids (users.assigned_application_ids -> applications.app_id)"
@@ -168,85 +165,84 @@ ENHANCED_SCHEMA = {
                 "security": "Track integrations and access patterns"
             }
         },
-        
         "devices": {
             "description": "Physical devices in the enterprise",
             "fields": {
                 "_id": {
-                    "type": "ObjectId", 
+                    "type": "ObjectId",
                     "description": "MongoDB unique identifier"
                 },
                 "hostname": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Device hostname or computer name",
                     "required": True,
                     "example": "LAPTOP-JOHN-001"
                 },
                 "ip_address": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "IP address of the device",
                     "required": True,
                     "pattern": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$",
                     "example": "192.168.1.100"
                 },
                 "os": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Operating system",
-                    "enum": ["windows", "macOS", "ubuntu"],
+                    "enum": [
+                        "windows",
+                        "macOS",
+                        "ubuntu"
+                    ],
                     "default": "windows",
                     "example": "windows"
                 },
                 "assigned_user": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "User ID of the primary assigned user",
                     "required": True,
                     "example": "USR-123ABC456DEF"
                 },
                 "location": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Physical location of the device",
                     "required": True,
                     "example": "Office Floor 3"
                 },
                 "status": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Current device status",
-                    "enum": ["inactive", "active", "suspended"],
+                    "enum": [
+                        "inactive",
+                        "active",
+                        "suspended"
+                    ],
                     "default": "inactive",
                     "example": "active"
                 },
                 "ci_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Configuration Item ID (CMDB identifier)",
                     "required": True,
                     "pattern": "CI-[A-F0-9]{12}",
                     "example": "CI-DEV456ABC789"
                 },
                 "device_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Unique device identifier",
                     "required": True,
                     "pattern": "DEV-[A-F0-9]{12}",
                     "example": "DEV-456ABC789XYZ"
                 },
                 "user_ids": {
-                    "type": "array[string]", 
+                    "type": "array[string]",
                     "description": "List of all user IDs who have access to this device",
                     "default": [],
-                    "example": ["USR-123ABC456DEF", "USR-GHI789JKL012"]
+                    "example": [
+                        "USR-123ABC456DEF",
+                        "USR-GHI789JKL012"
+                    ]
                 }
             },
-            "indexes": [
-                {"device_id": 1},
-                {"ci_id": 1},
-                {"hostname": 1},
-                {"ip_address": 1},
-                {"assigned_user": 1},
-                {"os": 1},
-                {"status": 1},
-                {"location": 1},
-                {"user_ids": 1}
-            ],
             "relationships": {
                 "primary_user": "Many-to-one via assigned_user (devices.assigned_user -> users.user_id)",
                 "all_users": "Many-to-many via user_ids (devices.user_ids -> users.user_id)"
@@ -267,7 +263,6 @@ ENHANCED_SCHEMA = {
             }
         }
     },
-    
     "cross_collection_relationships": {
         "user_application_access": {
             "description": "Users can be assigned to multiple applications",
@@ -286,7 +281,7 @@ ENHANCED_SCHEMA = {
             "description": "Users can have devices assigned to them",
             "query_pattern": "Find users and their assigned devices",
             "mongodb_lookup": {
-                "from_collection": "users", 
+                "from_collection": "users",
                 "lookup": {
                     "from": "devices",
                     "localField": "user_id",
@@ -309,15 +304,14 @@ ENHANCED_SCHEMA = {
             }
         }
     },
-    
     "query_patterns": {
         "basic_find": {
             "description": "Simple find queries for individual collections",
-            "format": '{"collection": "name", "query": {...}, "limit": 10}',
+            "format": "{\"collection\": \"name\", \"query\": {...}, \"limit\": 10}",
             "examples": [
-                '{"collection": "users", "query": {"mfa_enabled": true}}',
-                '{"collection": "applications", "query": {"type": "SaaS"}}',
-                '{"collection": "devices", "query": {"status": "active", "os": "windows"}}'
+                "{\"collection\": \"users\", \"query\": {\"mfa_enabled\": True}}",
+                "{\"collection\": \"applications\", \"query\": {\"type\": \"SaaS\"}}",
+                "{\"collection\": \"devices\", \"query\": {\"status\": \"active\", \"os\": \"windows\"}}"
             ]
         },
         "user_analytics": {
@@ -328,20 +322,35 @@ ENHANCED_SCHEMA = {
                     "query": {
                         "collection": "users",
                         "pipeline": [
-                            {"$group": {"_id": "$team", "count": {"$sum": 1}}},
-                            {"$sort": {"count": -1}}
+                            {
+                                "$group": {
+                                    "_id": "$team",
+                                    "count": {
+                                        "$sum": 1
+                                    }
+                                }
+                            },
+                            {
+                                "$sort": {
+                                    "count": -1
+                                }
+                            }
                         ]
                     }
                 },
                 {
                     "description": "MFA compliance rate",
                     "query": {
-                        "collection": "users", 
+                        "collection": "users",
                         "pipeline": [
-                            {"$group": {
-                                "_id": "$mfa_enabled",
-                                "count": {"$sum": 1}
-                            }}
+                            {
+                                "$group": {
+                                    "_id": "$mfa_enabled",
+                                    "count": {
+                                        "$sum": 1
+                                    }
+                                }
+                            }
                         ]
                     }
                 }
@@ -355,16 +364,27 @@ ENHANCED_SCHEMA = {
                     "query": {
                         "collection": "devices",
                         "pipeline": [
-                            {"$group": {"_id": "$os", "count": {"$sum": 1}}},
-                            {"$sort": {"count": -1}}
+                            {
+                                "$group": {
+                                    "_id": "$os",
+                                    "count": {
+                                        "$sum": 1
+                                    }
+                                }
+                            },
+                            {
+                                "$sort": {
+                                    "count": -1
+                                }
+                            }
                         ]
                     }
                 }
             ]
         },
-        "application_analytics" : {
-            "description" : "Application analytics and reporting query",
-            "examples" : [
+        "application_analytics": {
+            "description": "Application analytics and reporting query",
+            "examples": [
                 {
                     "description": "List top Apps with the most integration",
                     "query": {
@@ -373,12 +393,19 @@ ENHANCED_SCHEMA = {
                             {
                                 "$addFields": {
                                     "integration_count": {
-                                        "$size": {"$ifNull": ["$integrations", []]}
+                                        "$size": {
+                                            "$ifNull": [
+                                                "$integrations",
+                                                []
+                                            ]
+                                        }
                                     }
                                 }
                             },
                             {
-                                "$sort": {"integration_count": -1}
+                                "$sort": {
+                                    "integration_count": -1
+                                }
                             },
                             {
                                 "$limit": 10
@@ -397,19 +424,25 @@ ENHANCED_SCHEMA = {
                         ]
                     }
                 },
-                 {
+                {
                     "description": "Application usage statistics",
                     "query": {
                         "collection": "applications",
                         "pipeline": [
-                            {"$group": {
-                                "_id": "$type",
-                                "total_apps": {"$sum": 1},
-                                "avg_usage": {"$avg": "$usage_count"}
-                            }}
+                            {
+                                "$group": {
+                                    "_id": "$type",
+                                    "total_apps": {
+                                        "$sum": 1
+                                    },
+                                    "avg_usage": {
+                                        "$avg": "$usage_count"
+                                    }
+                                }
+                            }
                         ]
                     }
-                },
+                }
             ]
         },
         "security_queries": {
@@ -420,14 +453,26 @@ ENHANCED_SCHEMA = {
                     "query": {
                         "collection": "users",
                         "pipeline": [
-                            {"$match": {"mfa_enabled": False}},
-                            {"$lookup": {
-                                "from": "devices",
-                                "localField": "user_id", 
-                                "foreignField": "assigned_user",
-                                "as": "devices"
-                            }},
-                            {"$match": {"devices": {"$ne": []}}}
+                            {
+                                "$match": {
+                                    "mfa_enabled": False
+                                }
+                            },
+                            {
+                                "$lookup": {
+                                    "from": "devices",
+                                    "localField": "user_id",
+                                    "foreignField": "assigned_user",
+                                    "as": "devices"
+                                }
+                            },
+                            {
+                                "$match": {
+                                    "devices": {
+                                        "$ne": []
+                                    }
+                                }
+                            }
                         ]
                     }
                 },
@@ -436,26 +481,39 @@ ENHANCED_SCHEMA = {
                     "query": {
                         "collection": "devices",
                         "pipeline": [
-                            {"$match": {"status": "inactive"}},
-                            {"$lookup": {
-                                "from": "users",
-                                "localField": "assigned_user",
-                                "foreignField": "user_id",
-                                "as": "user"
-                            }},
-                            {"$unwind": "$user"},
-                            {"$match": {"user.assigned_application_ids": {"$ne": []}}}
+                            {
+                                "$match": {
+                                    "status": "inactive"
+                                }
+                            },
+                            {
+                                "$lookup": {
+                                    "from": "users",
+                                    "localField": "assigned_user",
+                                    "foreignField": "user_id",
+                                    "as": "user"
+                                }
+                            },
+                            {
+                                "$unwind": "$user"
+                            },
+                            {
+                                "$match": {
+                                    "user.assigned_application_ids": {
+                                        "$ne": []
+                                    }
+                                }
+                            }
                         ]
                     }
                 }
             ]
         }
     },
-    
     "natural_language_examples": {
         "user_queries": [
             "Find all users with MFA enabled",
-            "Show users who haven't logged in for 30 days", 
+            "Show users who haven't logged in for 30 days",
             "List users by team",
             "Find users without any applications assigned",
             "Users with more than 5 applications",
@@ -494,27 +552,53 @@ ENHANCED_SCHEMA = {
             "Compliance dashboard for MFA adoption"
         ]
     },
-    
     "data_validation_rules": {
         "users": {
-            "required_fields": ["name", "ci_id", "user_id"],
-            "unique_fields": ["ci_id", "user_id"],
+            "required_fields": [
+                "name",
+                "ci_id",
+                "user_id"
+            ],
+            "unique_fields": [
+                "ci_id",
+                "user_id"
+            ],
             "format_validation": {
                 "ci_id": "^CI-[A-F0-9]{12}$",
                 "user_id": "^USR-[A-F0-9]{12}$"
             }
         },
         "applications": {
-            "required_fields": ["name", "owner", "ci_id", "app_id"],
-            "unique_fields": ["ci_id", "app_id"],
+            "required_fields": [
+                "name",
+                "owner",
+                "ci_id",
+                "app_id"
+            ],
+            "unique_fields": [
+                "ci_id",
+                "app_id"
+            ],
             "format_validation": {
                 "ci_id": "^CI-[A-F0-9]{12}$",
                 "app_id": "^APP-[A-F0-9]{12}$"
             }
         },
         "devices": {
-            "required_fields": ["hostname", "ip_address", "assigned_user", "location", "ci_id", "device_id"],
-            "unique_fields": ["ci_id", "device_id", "ip_address", "hostname"],
+            "required_fields": [
+                "hostname",
+                "ip_address",
+                "assigned_user",
+                "location",
+                "ci_id",
+                "device_id"
+            ],
+            "unique_fields": [
+                "ci_id",
+                "device_id",
+                "ip_address",
+                "hostname"
+            ],
             "format_validation": {
                 "ci_id": "^CI-[A-F0-9]{12}$",
                 "device_id": "^DEV-[A-F0-9]{12}$",
