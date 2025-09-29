@@ -9,11 +9,11 @@ class Settings(BaseSettings):
 
     # Database configuration
     database_type: str = "memory"  # Options: "mongodb", "memory"
-    #DONT CHECK THIS IN!!
-    mongodb_url: str = ""
     database_name: str = "cmdb_shm"
 
-    openai_api_key: str = ""
+    #need to be populated to actually hit end point. Or just use False in enable_ai_field_mapping
+    openai_api_key = ""
+    mongodb_url = ""
 
     enable_ai_field_mapping: bool = False
     
