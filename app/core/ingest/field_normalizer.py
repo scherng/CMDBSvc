@@ -58,6 +58,7 @@ class FieldNormalizer:
             return self._fallback_detection_and_mapping(data)
 
         try:
+            # TODO we should try to detect using schema rather than always using AI - it is overkill
             # First, try to detect entity type using AI
             entity_type = await self._llm_detect_entity_type(data)
             logger.info(f"LLM detected entity type: {entity_type}")

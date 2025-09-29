@@ -6,6 +6,14 @@ A Configuration Management Database (CMDB) service built with FastAPI that provi
 
 The CMDB service is designed with a modular architecture that supports multiple database backends, AI-enhanced field mapping, and natural language query processing. Currently the implementation assume a batch mode where each steps will be executed sequentially within the runtime (it is using `async` so at least non blocking). However, such implementation probably is a perfect use case for streaming or serverless architecture on cloud. 
 
+MongoDB is chosen for this project for several reasons: 
+1. Between SQL and NonSQL - despite the data showing clear relationship and table like format, the flexible querying becomes the key reason why I choose NoSQL. Especially for natural language like query to retrieve value based on certain column, sql query will be too limiting.
+2. Scalability on the write volume. I dont think the _write_ scale will be an issue here - I envision CI data to be consumed in bulk in a fixed time cadence, while allowing some push for updates. Moreover, it won't be like metrics collection where realtime data streaming and flushing to db is needed. Hence I will prioritize rich query ability rather than write optimization. So I picked Mongo for that reason 
+3. Extensibility. The document like format is great for adding more collections in the future, and work with AI-enriching ability
+
+For the AI options, I went with LlamaIndex and OpenAI. From a brief research, LlamaIndex is easier to onboard and sufficient for the Q&A use case (or chatting). Since we don't need agentic workflow, Llama Index seems to be sufficient (Compared to LangChain or HuggingFace. The natural language prompt can definitely be improved by using RouterQueryEngine or even RetrieverQueryEngine within LlamaIndex, and that will be a future enhancement. 
+
+
 ### Entity Models
 
 ```mermaid
@@ -161,7 +169,7 @@ classDiagram
 - The ci_id is normalized throughout collections, no information of the CI entity type is exposed from the id.
 - I'm not sure on Dependency Mappings relatioships, I'm guessing could be the correlation between App to Users or hierarchy of groups/permissioning. Right now it is not represented in the code, though the code can be enhanced easily to do cross-collection search. 
 - The natural language prompt can only work on a single collection at a time.
-- 
+- the AI normalizer only normalize the field key, not the field value. So Enum validations are not great.
 
 ## API Endpoints
 
@@ -212,7 +220,9 @@ pip install -r requirements.txt
 ```
 
 2. Configure environment variables or `.env` file:
+I have setup in memory mongo-db like operator, and also fallback logic when no llm is enabled (which most of the time iwll be erroring/ not good features) 
 
+But it can be a good way to start testing. I can also give a demo if needed. 
 ```bash
 MONGODB_URL=your_mongodb_connection_string
 OPENAI_API_KEY=your_openai_api_key
@@ -221,7 +231,7 @@ DATABASE_TYPE=mongodb  # or "memory" for testing
 
 3. Run the service:
 ```bash
-python run.py
+python3 app/main.py
 ```
 
 ## Usage Examples
